@@ -2,24 +2,28 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
+     * Urutan penting: tabel independen dulu, lalu yang bergantung pada FK.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $this->call([
+            // 1. Master data tanpa FK
+            WasteCategorySeeder::class,
+            GamificationSettingSeeder::class,
+            AchievementSeeder::class,
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+            // 2. Users (citizen, waste_bank, admin)
+            UserSeeder::class,
+
+            // 3. Data bergantung pada users + categories
+            WasteBankSeeder::class,
+            UpcyclingIdeaSeeder::class,
         ]);
     }
 }
