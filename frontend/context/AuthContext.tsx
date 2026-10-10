@@ -3,7 +3,6 @@
 /**
  * context/AuthContext.tsx
  * Global auth state — user, loading, login, logout, register.
- * Wrap layout root dengan <AuthProvider>.
  */
 
 import {
@@ -14,15 +13,17 @@ import {
   useState,
 } from 'react';
 import {
-  AuthUser,
+  type AuthUser,
+  type Role,
   fetchMe,
   getDashboardPath,
   loadUser,
   loginUser,
   logoutUser,
-  registerCitizen,
+  registerUser,
 } from '@/lib/auth';
-import { getToken } from '@/lib/api';
+import { getToken, removeToken } from '@/lib/api';
+import { removeUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 
 // ── Context type ──────────────────────────────────────────────────────────
@@ -45,14 +46,14 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// ── Provider ───────────────────────────────────────────────────────────────
+// ── Provider ──────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser]           = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Pada mount: cek token + hydrate user dari localStorage, lalu verify ke server
+  // Mount: cek token → hydrate dari cache → verify ke server
   useEffect(() => {
     const token = getToken();
     if (!token) {
@@ -60,16 +61,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Tampilkan data cache sambil verify ke server
     const cached = loadUser();
-    if (cached) setUser(cached); // tampilkan cached sambil verify
+    if (cached) setUser(cached);
 
     fetchMe()
       .then(setUser)
       .catch(() => {
-        // Token tidak valid — bersihkan
+        // Token invalid / expired — bersihkan semua
         setUser(null);
-        import('@/lib/auth').then(({ removeUser }) => removeUser());
-        import('@/lib/api').then(({ removeToken }) => removeToken());
+        removeUser();
+        removeToken();
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -84,8 +86,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const register = useCallback(
-    async (data: Parameters<typeof registerCitizen>[0]) => {
-      const newUser = await registerCitizen(data);
+    async (data: Parameters<typeof registerUser>[0]) => {
+      const newUser = await registerUser(data);
       setUser(newUser);
       router.push(getDashboardPath(newUser.role));
     },
@@ -120,12 +122,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Hook ───────────────────────────────────────────────────────────────────
+// ── Hook ──────────────────────────────────────────────────────────────────
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth harus digunakan di dalam <AuthProvider>');
-  }
+  if (!ctx) throw new Error('useAuth harus digunakan di dalam <AuthProvider>');
   return ctx;
 }

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -20,8 +21,10 @@ class User extends Authenticatable
         'role',
         'phone',
         'avatar',
-        'total_points',
-        'is_active',
+        'member_code',
+        'points_balance',
+        'status',
+        'banned_reason',
     ];
 
     protected $hidden = [
@@ -34,38 +37,45 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
-            'is_active'         => 'boolean',
-            'total_points'      => 'integer',
+            'points_balance'    => 'integer',
         ];
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Boot: generate member_code otomatis untuk role user ───────────────
 
-    public function isAdmin(): bool
+    protected static function booted(): void
     {
-        return $this->role === 'admin';
+        static::creating(function (User $user) {
+            if ($user->role === 'user' && empty($user->member_code)) {
+                $user->member_code = static::generateUniqueMemberCode();
+            }
+        });
     }
 
-    public function isWasteBank(): bool
+    public static function generateUniqueMemberCode(): string
     {
-        return $this->role === 'waste_bank';
+        do {
+            // Format: GG-XXXXXX  (huruf kapital + angka, 6 karakter)
+            $code = 'GG-' . strtoupper(Str::random(6));
+        } while (static::where('member_code', $code)->exists());
+
+        return $code;
     }
 
-    public function isCitizen(): bool
-    {
-        return $this->role === 'citizen';
-    }
+    // ── Role helpers ──────────────────────────────────────────────────────
 
-    // ── Relations ─────────────────────────────────────────────────────────────
+    public function isDeveloper(): bool  { return $this->role === 'developer'; }
+    public function isWasteBank(): bool  { return $this->role === 'waste_bank'; }
+    public function isCommunity(): bool  { return $this->role === 'community'; }
+    public function isUser(): bool       { return $this->role === 'user'; }
+    public function isActive(): bool     { return $this->status === 'active'; }
+    public function isBanned(): bool     { return $this->status === 'banned'; }
+
+    // ── Relations ─────────────────────────────────────────────────────────
 
     public function wasteScans(): HasMany
     {
         return $this->hasMany(WasteScan::class);
-    }
-
-    public function upcyclingProgress(): HasMany
-    {
-        return $this->hasMany(UserUpcyclingProgress::class);
     }
 
     public function wasteBank(): HasOne
@@ -73,9 +83,16 @@ class User extends Authenticatable
         return $this->hasOne(WasteBank::class);
     }
 
+    /** Deposit sebagai penyetor (warga) */
     public function deposits(): HasMany
     {
         return $this->hasMany(Deposit::class);
+    }
+
+    /** Deposit yang dicatat oleh user ini (sebagai petugas) */
+    public function recordedDeposits(): HasMany
+    {
+        return $this->hasMany(Deposit::class, 'recorded_by');
     }
 
     public function pointTransactions(): HasMany
@@ -83,20 +100,31 @@ class User extends Authenticatable
         return $this->hasMany(PointTransaction::class);
     }
 
-    public function userAchievements(): HasMany
+    public function diySubmissions(): HasMany
     {
-        return $this->hasMany(UserAchievement::class);
+        return $this->hasMany(DiySubmission::class);
     }
 
-    public function achievements(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    /** Panduan DIY yang dibuat oleh user ini (community/developer) */
+    public function diyGuides(): HasMany
     {
-        return $this->belongsToMany(Achievement::class, 'user_achievements')
-            ->withPivot('unlocked_at')
-            ->withTimestamps();
+        return $this->hasMany(DiyGuide::class, 'created_by');
     }
 
-    public function environmentalImpact(): HasOne
+    public function rewardRedemptions(): HasMany
     {
-        return $this->hasOne(EnvironmentalImpact::class);
+        return $this->hasMany(RewardRedemption::class);
+    }
+
+    /** Permintaan material (hanya community) */
+    public function materialRequests(): HasMany
+    {
+        return $this->hasMany(MaterialRequest::class, 'community_id');
+    }
+
+    /** Respons terhadap permintaan material */
+    public function materialRequestResponses(): HasMany
+    {
+        return $this->hasMany(MaterialRequestResponse::class, 'responder_id');
     }
 }

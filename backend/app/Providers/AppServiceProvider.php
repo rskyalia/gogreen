@@ -21,23 +21,20 @@ class AppServiceProvider extends ServiceProvider
 
     protected function configureRateLimiting(): void
     {
-        // Named rate limiter untuk login endpoint
+        // Rate limiter untuk login — 5 percobaan per menit per kombinasi email+IP
         RateLimiter::for('login', function (Request $request) {
             return Limit::perMinute(5)
                 ->by($request->input('email') . '|' . $request->ip())
-                ->response(function () {
-                    return response()->json([
-                        'message' => 'Terlalu banyak percobaan login. Coba lagi dalam 1 menit.',
-                        'errors'  => [],
-                    ], 429);
-                });
+                ->response(fn () => response()->json([
+                    'message' => 'Terlalu banyak percobaan login. Coba lagi dalam 1 menit.',
+                    'errors'  => [],
+                ], 429));
         });
 
-        // Rate limiter default untuk API umum
+        // Rate limiter default API — 60 request/menit per user atau IP
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by(
-                optional($request->user())->id ?: $request->ip()
-            );
+            return Limit::perMinute(60)
+                ->by(optional($request->user())->id ?: $request->ip());
         });
     }
 }

@@ -3,10 +3,9 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Cross-Origin Resource Sharing (CORS) Configuration
+    | CORS — hanya izinkan request dari FRONTEND_URL
     |--------------------------------------------------------------------------
     |
-    | Hanya FRONTEND_URL yang boleh mengakses API ini.
     | Set FRONTEND_URL di .env, contoh: http://localhost:3000
     |
     */
@@ -27,9 +26,7 @@ return [
 
     'max_age' => 0,
 
-    /*
-     * Set true jika frontend mengirim cookies (misal: session-based auth).
-     * Untuk Sanctum SPA (cookie), harus true. Untuk token saja, false cukup.
-     */
+    // true jika frontend mengirim cookie (Sanctum SPA).
+    // Untuk token-only (Next.js fetch + Bearer), false sudah cukup.
     'supports_credentials' => true,
 ];

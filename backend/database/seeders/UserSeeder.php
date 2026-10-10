@@ -10,61 +10,87 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // Admin default
+        // ── Developer (admin platform) ────────────────────────────────────
         User::updateOrCreate(
-            ['email' => 'admin@gogreen.id'],
+            ['email' => 'dev@gogreen.id'],
             [
-                'name'              => 'Super Admin',
-                'password'          => Hash::make('admin123'),
-                'role'              => 'admin',
-                'phone'             => '081200000000',
-                'is_active'         => true,
+                'name'              => 'Developer GO GREEN',
+                'password'          => Hash::make('dev123'),
+                'role'              => 'developer',
+                'phone'             => '081200000001',
+                'status'            => 'active',
+                'member_code'       => null,
                 'email_verified_at' => now(),
             ]
         );
 
-        // Contoh akun waste_bank
-        $wb1 = User::updateOrCreate(
-            ['email' => 'banksampahjaya@gogreen.id'],
+        // ── Waste Bank accounts ───────────────────────────────────────────
+        User::updateOrCreate(
+            ['email' => 'jaya@gogreen.id'],
             [
-                'name'              => 'Bank Sampah Jaya',
+                'name'              => 'Petugas Bank Sampah Jaya',
                 'password'          => Hash::make('password'),
                 'role'              => 'waste_bank',
                 'phone'             => '081211111111',
-                'is_active'         => true,
+                'status'            => 'active',
+                'member_code'       => null,
                 'email_verified_at' => now(),
             ]
         );
 
-        $wb2 = User::updateOrCreate(
-            ['email' => 'banksampahmakmur@gogreen.id'],
+        User::updateOrCreate(
+            ['email' => 'makmur@gogreen.id'],
             [
-                'name'              => 'Bank Sampah Makmur',
+                'name'              => 'Petugas Bank Sampah Makmur',
                 'password'          => Hash::make('password'),
                 'role'              => 'waste_bank',
                 'phone'             => '081222222222',
-                'is_active'         => true,
+                'status'            => 'active',
+                'member_code'       => null,
                 'email_verified_at' => now(),
             ]
         );
 
-        // Contoh akun citizen
+        // ── Community accounts ────────────────────────────────────────────
         User::updateOrCreate(
-            ['email' => 'citizen@gogreen.id'],
+            ['email' => 'komunitas@gogreen.id'],
+            [
+                'name'              => 'Komunitas DIY Jakarta',
+                'password'          => Hash::make('password'),
+                'role'              => 'community',
+                'phone'             => '081233333333',
+                'status'            => 'active',
+                'member_code'       => null,
+                'email_verified_at' => now(),
+            ]
+        );
+
+        // ── Regular users (warga) — member_code di-generate otomatis ──────
+        User::updateOrCreate(
+            ['email' => 'budi@gogreen.id'],
             [
                 'name'              => 'Budi Santoso',
                 'password'          => Hash::make('password'),
-                'role'              => 'citizen',
-                'phone'             => '081233333333',
-                'total_points'      => 150,
-                'is_active'         => true,
+                'role'              => 'user',
+                'phone'             => '081244444444',
+                'status'            => 'active',
+                'points_balance'    => 150,
                 'email_verified_at' => now(),
+                // member_code akan di-generate oleh model boot jika belum ada
             ]
         );
 
-        // Simpan id waste_bank user agar bisa dipakai seeder lain
-        $this->command->getOutput()->writeln(
-            "  <info>Waste bank user IDs: {$wb1->id}, {$wb2->id}</info>"
+        User::updateOrCreate(
+            ['email' => 'sari@gogreen.id'],
+            [
+                'name'              => 'Sari Dewi',
+                'password'          => Hash::make('password'),
+                'role'              => 'user',
+                'phone'             => '081255555555',
+                'status'            => 'active',
+                'points_balance'    => 80,
+                'email_verified_at' => now(),
+            ]
         );
     }
 }

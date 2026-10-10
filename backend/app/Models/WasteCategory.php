@@ -13,36 +13,44 @@ class WasteCategory extends Model
         'slug',
         'description',
         'is_recyclable',
+        'is_upcyclable',
+        'points_per_kg',
         'icon',
     ];
 
     protected function casts(): array
     {
         return [
-            'is_recyclable' => 'boolean',
+            'is_recyclable'  => 'boolean',
+            'is_upcyclable'  => 'boolean',
+            'points_per_kg'  => 'integer',
         ];
     }
 
-    // ── Relations ─────────────────────────────────────────────────────────────
+    // ── Relations ─────────────────────────────────────────────────────────
 
     public function wasteScans(): HasMany
     {
         return $this->hasMany(WasteScan::class);
     }
 
-    public function upcyclingIdeas(): HasMany
+    public function diyGuides(): HasMany
     {
-        return $this->hasMany(UpcyclingIdea::class);
+        return $this->hasMany(DiyGuide::class);
     }
 
     public function wasteBanks(): BelongsToMany
     {
-        return $this->belongsToMany(WasteBank::class, 'waste_bank_accepted_categories')
-            ->withPivot('price_per_kg');
+        return $this->belongsToMany(WasteBank::class, 'waste_bank_categories');
     }
 
-    public function deposits(): HasMany
+    public function depositItems(): HasMany
     {
-        return $this->hasMany(Deposit::class);
+        return $this->hasMany(DepositItem::class);
+    }
+
+    public function materialRequests(): HasMany
+    {
+        return $this->hasMany(MaterialRequest::class);
     }
 }

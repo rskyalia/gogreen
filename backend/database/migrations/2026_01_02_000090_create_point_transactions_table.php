@@ -8,18 +8,23 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Ledger poin — sumber kebenaran saldo poin user
+        // Setiap perubahan poin (tambah/kurang) wajib dicatat di sini
         Schema::create('point_transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->enum('action_type', ['scan', 'upcycle', 'deposit', 'recycle_per_kg', 'achievement']);
-            $table->integer('points'); // bisa negatif untuk penukaran
-            $table->string('description');
-            // Polymorphic: morphs ke scan, deposit, progress, dsb.
+            $table->enum('type', ['deposit', 'diy_approved', 'redeem', 'adjustment']);
+            // points bisa negatif untuk redeem/adjustment pengurangan
+            $table->integer('points');
+            // snapshot saldo setelah transaksi ini
+            $table->unsignedInteger('balance_after');
+            // Polymorphic reference ke sumber transaksi
             $table->nullableMorphs('reference');
+            $table->string('description');
             $table->timestamps();
 
             $table->index('user_id');
-            $table->index('action_type');
+            $table->index('type');
         });
     }
 

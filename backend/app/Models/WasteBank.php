@@ -6,12 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WasteBank extends Model
 {
-    use SoftDeletes;
-
     protected $fillable = [
         'user_id',
         'name',
@@ -19,46 +16,48 @@ class WasteBank extends Model
         'latitude',
         'longitude',
         'phone',
-        'operating_hours',
         'description',
-        'is_active',
-        'is_verified',
+        'opening_hours',
+        'is_open',
+        'verification_status',
+        'verified_by',
+        'verified_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'operating_hours' => 'array',
-            'is_active'       => 'boolean',
-            'is_verified'     => 'boolean',
-            'latitude'        => 'decimal:7',
-            'longitude'       => 'decimal:7',
+            'opening_hours'       => 'array',
+            'is_open'             => 'boolean',
+            'latitude'            => 'decimal:7',
+            'longitude'           => 'decimal:7',
+            'verified_at'         => 'datetime',
         ];
     }
 
-    // ── Scopes ────────────────────────────────────────────────────────────────
+    // ── Scopes ────────────────────────────────────────────────────────────
 
+    /** Hanya bank sampah yang sudah diverifikasi yang muncul di peta */
     public function scopeVerified($query)
     {
-        return $query->where('is_verified', true);
+        return $query->where('verification_status', 'verified');
     }
 
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
-
-    // ── Relations ─────────────────────────────────────────────────────────────
+    // ── Relations ─────────────────────────────────────────────────────────
 
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function verifier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_by');
+    }
+
     public function acceptedCategories(): BelongsToMany
     {
-        return $this->belongsToMany(WasteCategory::class, 'waste_bank_accepted_categories')
-            ->withPivot('price_per_kg');
+        return $this->belongsToMany(WasteCategory::class, 'waste_bank_categories');
     }
 
     public function deposits(): HasMany

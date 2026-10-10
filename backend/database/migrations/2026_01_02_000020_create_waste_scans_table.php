@@ -15,17 +15,15 @@ return new class extends Migration
             $table->string('image_path');
             $table->string('object_name');
             $table->string('material');
-            $table->decimal('confidence', 5, 4); // e.g. 0.9512
+            $table->decimal('confidence', 5, 2); // 0.00 – 100.00
             $table->unsignedTinyInteger('green_score'); // 0-100
-            $table->string('score_label');
-            $table->enum('risk_level', ['low', 'medium', 'high'])->default('low');
-            $table->text('recommended_action');
+            // recommended_path: diy = panduan upcycling, bank_sampah = setor ke bank, both = keduanya
+            $table->enum('recommended_path', ['diy', 'bank_sampah', 'both'])->default('both');
             $table->json('raw_result');
             $table->timestamps();
 
             $table->index('user_id');
             $table->index('waste_category_id');
-            $table->index('risk_level');
         });
     }
 

@@ -7,38 +7,68 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | API Routes — GO GREEN
 |--------------------------------------------------------------------------
+|
+| Semua route di sini sudah ter-prefix /api secara otomatis.
+| Struktur:
+|   - Auth publik  : /api/register, /api/login
+|   - Auth privat  : /api/logout, /api/me
+|   - User         : /api/user/*
+|   - Waste Bank   : /api/waste-bank/*
+|   - Community    : /api/community/*
+|   - Developer    : /api/developer/*
+|
 */
 
-// ── Auth (publik) ─────────────────────────────────────────────────────────
-Route::prefix('auth')->group(function () {
-    // Rate limit: 5 percobaan per menit per kombinasi email+IP
-    Route::middleware('throttle:login')->group(function () {
-        Route::post('/login', [AuthController::class, 'login']);
-    });
+// ── Auth publik ───────────────────────────────────────────────────────────
 
+Route::prefix('auth')->group(function () {
+    // Rate limit: 5 percobaan/menit per email+IP (lihat AppServiceProvider)
+    Route::middleware('throttle:login')->post('/login', [AuthController::class, 'login']);
+
+    // Register: tanpa extra payload → user
+    //           dengan "waste_bank"  → waste_bank (pending)
+    //           dengan "community"   → community
     Route::post('/register', [AuthController::class, 'register']);
 });
 
-// ── Auth (butuh token) ────────────────────────────────────────────────────
+// ── Auth privat (butuh token Sanctum) ────────────────────────────────────
+
 Route::middleware('auth:sanctum')->group(function () {
+
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 
-    // ── Citizen routes ────────────────────────────────────────────────────
-    Route::middleware('role:citizen')->prefix('citizen')->group(function () {
-        // placeholder — tambahkan controller citizen di sini
-        // Route::apiResource('scans', ScanController::class);
+    // ── User (warga) ──────────────────────────────────────────────────────
+    Route::middleware('role:user')->prefix('user')->group(function () {
+        // Fase berikutnya:
+        // Route::apiResource('scans', WasteScanController::class);
+        // Route::apiResource('diy-submissions', DiySubmissionController::class);
+        // Route::apiResource('redemptions', RewardRedemptionController::class);
     });
 
-    // ── Waste Bank routes ─────────────────────────────────────────────────
+    // ── Waste Bank (petugas) ──────────────────────────────────────────────
     Route::middleware('role:waste_bank')->prefix('waste-bank')->group(function () {
-        // placeholder — tambahkan controller waste_bank di sini
-        // Route::apiResource('deposits', DepositController::class);
+        // Route::post('deposits', [DepositController::class, 'store']);
+        // Route::get('deposits', [DepositController::class, 'index']);
+        // Route::get('users/by-member-code/{code}', [UserLookupController::class, 'byMemberCode']);
     });
 
-    // ── Admin routes ──────────────────────────────────────────────────────
-    Route::middleware('role:admin')->prefix('admin')->group(function () {
-        // placeholder — tambahkan controller admin di sini
-        // Route::post('waste-banks/{id}/verify', [AdminWasteBankController::class, 'verify']);
+    // ── Community ─────────────────────────────────────────────────────────
+    Route::middleware('role:community')->prefix('community')->group(function () {
+        // Route::apiResource('diy-guides', CommunityDiyGuideController::class);
+        // Route::apiResource('material-requests', MaterialRequestController::class);
+    });
+
+    // ── Developer (admin platform) ────────────────────────────────────────
+    Route::middleware('role:developer')->prefix('developer')->group(function () {
+        // Route::post('waste-banks/{id}/verify', [WasteBankVerificationController::class, 'verify']);
+        // Route::post('users/{id}/ban', [UserManagementController::class, 'ban']);
+        // Route::get('ml-logs', [MlApiLogController::class, 'index']);
+    });
+
+    // ── Route yang bisa diakses beberapa role ─────────────────────────────
+    // Contoh: developer dan community bisa buat panduan DIY
+    Route::middleware('role:developer,community')->prefix('diy')->group(function () {
+        // Route::apiResource('guides', DiyGuideController::class);
     });
 });
