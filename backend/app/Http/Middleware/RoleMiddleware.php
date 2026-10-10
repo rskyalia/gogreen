@@ -9,24 +9,24 @@ use Symfony\Component\HttpFoundation\Response;
 class RoleMiddleware
 {
     /**
-     * Handle an incoming request.
+     * Cek apakah user yang sedang login memiliki salah satu role yang diizinkan.
      *
-     * Usage:  Route::middleware('role:admin')
-     *         Route::middleware('role:citizen,waste_bank')
+     * Penggunaan di route:
+     *   Route::middleware('role:developer')
+     *   Route::middleware('role:user,waste_bank')       ← multi-role
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = $request->user();
 
         if (! $user) {
-            return response()->json([
-                'message' => 'Unauthenticated.',
-            ], 401);
+            return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
         if (! in_array($user->role, $roles, true)) {
             return response()->json([
-                'message' => 'Forbidden. Anda tidak memiliki akses ke halaman ini.',
+                'message' => 'Forbidden. Anda tidak memiliki akses ke sumber daya ini.',
+                'errors'  => ['role' => ["Diperlukan role: " . implode(' atau ', $roles)]],
             ], 403);
         }
 

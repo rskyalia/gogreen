@@ -10,16 +10,16 @@ class WasteBankResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'              => $this->id,
-            'name'            => $this->name,
-            'address'         => $this->address,
-            'latitude'        => (float) $this->latitude,
-            'longitude'       => (float) $this->longitude,
-            'phone'           => $this->phone,
-            'operating_hours' => $this->operating_hours,
-            'description'     => $this->description,
-            'is_active'       => $this->is_active,
-            'is_verified'     => $this->is_verified,
+            'id'                  => $this->id,
+            'name'                => $this->name,
+            'address'             => $this->address,
+            'latitude'            => (float) $this->latitude,
+            'longitude'           => (float) $this->longitude,
+            'phone'               => $this->phone,
+            'description'         => $this->description,
+            'opening_hours'       => $this->opening_hours,
+            'is_open'             => $this->is_open,
+            'verification_status' => $this->verification_status,
         ];
     }
 }

@@ -15,21 +15,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Alias untuk middleware role
+        // Alias middleware role agar bisa dipakai sebagai 'role:developer', dll.
         $middleware->alias([
             'role' => RoleMiddleware::class,
         ]);
 
-        // Tambahkan CORS untuk semua request
+        // CORS untuk semua request
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Semua request ke /api/* selalu dapat JSON response
+        // Semua request ke /api/* selalu terima JSON response
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson()
         );
 
-        // Format error validasi konsisten
+        // Format error validasi konsisten: { message, errors }
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([

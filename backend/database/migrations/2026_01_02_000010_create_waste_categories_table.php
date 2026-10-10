@@ -14,6 +14,9 @@ return new class extends Migration
             $table->string('slug')->unique();
             $table->text('description')->nullable();
             $table->boolean('is_recyclable')->default(true);
+            $table->boolean('is_upcyclable')->default(true);
+            // Poin yang diberikan per kg sampah yang disetor ke bank sampah
+            $table->unsignedInteger('points_per_kg')->default(0);
             $table->string('icon')->nullable();
             $table->timestamps();
         });

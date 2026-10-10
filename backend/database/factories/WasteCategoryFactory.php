@@ -16,7 +16,8 @@ class WasteCategoryFactory extends Factory
     public function definition(): array
     {
         $name = fake()->unique()->randomElement([
-            'Plastik', 'Kertas', 'Kaca', 'Logam', 'Organik', 'Elektronik',
+            'Plastik PET', 'Kardus', 'Kaleng', 'Kaca',
+            'Organik', 'Kertas', 'Elektronik', 'Tekstil',
         ]);
 
         return [
@@ -24,6 +25,8 @@ class WasteCategoryFactory extends Factory
             'slug'          => Str::slug($name),
             'description'   => fake()->sentence(),
             'is_recyclable' => true,
+            'is_upcyclable' => true,
+            'points_per_kg' => fake()->randomElement([10, 20, 30, 50]),
             'icon'          => null,
         ];
     }

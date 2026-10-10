@@ -1,7 +1,7 @@
 /**
  * lib/auth.ts
  * Helper untuk operasi auth: login, register, logout, fetchMe.
- * Semua fungsi ini mengurus token storage secara otomatis.
+ * Mengurus token & user cache (localStorage + cookie) secara otomatis.
  */
 
 import { api, setToken, removeToken } from './api';
@@ -9,19 +9,19 @@ import { setCookie, deleteCookie } from './cookies';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
-export type Role = 'citizen' | 'waste_bank' | 'admin';
+export type Role = 'user' | 'waste_bank' | 'developer' | 'community';
 
-export interface WasteBank {
+export interface WasteBankProfile {
   id: number;
   name: string;
   address: string;
   latitude: number;
   longitude: number;
   phone: string;
-  operating_hours: Record<string, string>;
   description: string | null;
-  is_active: boolean;
-  is_verified: boolean;
+  opening_hours: Record<string, string>;
+  is_open: boolean;
+  verification_status: 'pending' | 'verified' | 'rejected';
 }
 
 export interface AuthUser {
@@ -31,10 +31,11 @@ export interface AuthUser {
   role: Role;
   phone: string | null;
   avatar: string | null;
-  total_points: number;
-  is_active: boolean;
+  member_code: string | null;   // hanya untuk role=user
+  points_balance: number;
+  status: 'active' | 'banned';
   created_at: string;
-  waste_bank?: WasteBank | null;
+  waste_bank?: WasteBankProfile | null;
 }
 
 export interface AuthResponse {
@@ -47,27 +48,32 @@ export interface MeResponse {
   user: AuthUser;
 }
 
-// ── Redirect map berdasarkan role ─────────────────────────────────────────
+// ── Dashboard paths ───────────────────────────────────────────────────────
 
 export function getDashboardPath(role: Role): string {
   const map: Record<Role, string> = {
-    citizen:    '/dashboard',
+    user:       '/dashboard',
     waste_bank: '/waste-bank/dashboard',
-    admin:      '/admin/dashboard',
+    developer:  '/admin/dashboard',
+    community:  '/community/dashboard',
   };
   return map[role];
 }
 
 // ── Auth actions ──────────────────────────────────────────────────────────
 
-export async function loginUser(email: string, password: string): Promise<AuthUser> {
+export async function loginUser(
+  email: string,
+  password: string,
+): Promise<AuthUser> {
   const res = await api.post<AuthResponse>('/auth/login', { email, password });
   setToken(res.token);
   saveUser(res.user);
   return res.user;
 }
 
-export async function registerCitizen(data: {
+/** Daftar sebagai warga biasa */
+export async function registerUser(data: {
   name: string;
   email: string;
   password: string;
@@ -80,6 +86,7 @@ export async function registerCitizen(data: {
   return res.user;
 }
 
+/** Daftar sebagai bank sampah — akun pending sampai developer verifikasi */
 export async function registerWasteBank(data: {
   name: string;
   email: string;
@@ -92,9 +99,24 @@ export async function registerWasteBank(data: {
     latitude: number;
     longitude: number;
     phone: string;
-    operating_hours: Record<string, string>;
+    opening_hours: Record<string, string>;
     description?: string;
   };
+}): Promise<AuthUser> {
+  const res = await api.post<AuthResponse>('/auth/register', data);
+  setToken(res.token);
+  saveUser(res.user);
+  return res.user;
+}
+
+/** Daftar sebagai komunitas DIY */
+export async function registerCommunity(data: {
+  name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+  phone?: string;
+  community?: { description?: string };
 }): Promise<AuthUser> {
   const res = await api.post<AuthResponse>('/auth/register', data);
   setToken(res.token);
@@ -117,14 +139,14 @@ export async function fetchMe(): Promise<AuthUser> {
   return res.user;
 }
 
-// ── User cache (localStorage) ─────────────────────────────────────────────
+// ── User cache (localStorage + cookie) ───────────────────────────────────
 
 const USER_KEY = 'gg_user';
 
 export function saveUser(user: AuthUser): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(USER_KEY, JSON.stringify(user));
-  // Simpan ke cookie agar middleware bisa membaca role
+  // Cookie dibaca oleh proxy.ts untuk proteksi route server-side
   setCookie('gg_user', JSON.stringify(user), 7);
 }
 

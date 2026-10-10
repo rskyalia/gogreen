@@ -11,26 +11,28 @@ class WasteBankSeeder extends Seeder
 {
     public function run(): void
     {
-        $wb1User = User::where('email', 'banksampahjaya@gogreen.id')->first();
-        $wb2User = User::where('email', 'banksampahmakmur@gogreen.id')->first();
+        $developer  = User::where('email', 'dev@gogreen.id')->first();
+        $jayaUser   = User::where('email', 'jaya@gogreen.id')->first();
+        $makmurUser = User::where('email', 'makmur@gogreen.id')->first();
 
-        if (! $wb1User || ! $wb2User) {
-            $this->command->warn('Waste bank users tidak ditemukan, jalankan UserSeeder terlebih dahulu.');
+        if (! $developer || ! $jayaUser || ! $makmurUser) {
+            $this->command->warn('Jalankan UserSeeder terlebih dahulu.');
             return;
         }
 
-        $categories = WasteCategory::pluck('id', 'slug');
+        $cats = WasteCategory::pluck('id', 'slug');
 
-        // ── Bank Sampah Jaya ──────────────────────────────────────────────────
+        // ── Bank Sampah Jaya ──────────────────────────────────────────────
         $bank1 = WasteBank::updateOrCreate(
-            ['user_id' => $wb1User->id],
+            ['user_id' => $jayaUser->id],
             [
-                'name'            => 'Bank Sampah Jaya',
-                'address'         => 'Jl. Raya Bogor No. 45, Ciracas, Jakarta Timur',
-                'latitude'        => -6.3241580,
-                'longitude'       => 106.8737200,
-                'phone'           => '021-8765432',
-                'operating_hours' => [
+                'name'                => 'Bank Sampah Jaya',
+                'address'             => 'Jl. Raya Bogor No. 45, Ciracas, Jakarta Timur',
+                'latitude'            => -6.3241580,
+                'longitude'           => 106.8737200,
+                'phone'               => '021-8765432',
+                'description'         => 'Bank sampah terpercaya di Jakarta Timur. Sistem penimbangan digital, harga transparan.',
+                'opening_hours'       => [
                     'senin'  => '08:00-17:00',
                     'selasa' => '08:00-17:00',
                     'rabu'   => '08:00-17:00',
@@ -39,32 +41,33 @@ class WasteBankSeeder extends Seeder
                     'sabtu'  => '08:00-12:00',
                     'minggu' => 'Tutup',
                 ],
-                'description' => 'Bank sampah terpercaya di wilayah Jakarta Timur. Menerima berbagai jenis sampah anorganik dan memberikan harga terbaik.',
-                'is_active'   => true,
-                'is_verified' => true,
+                'is_open'             => true,
+                'verification_status' => 'verified',
+                'verified_by'         => $developer->id,
+                'verified_at'         => now(),
             ]
         );
 
-        // Kategori yang diterima
-        if ($categories->has('plastik-pet')) {
-            $bank1->acceptedCategories()->syncWithoutDetaching([
-                $categories['plastik-pet'] => ['price_per_kg' => 3500],
-                $categories['kardus']      => ['price_per_kg' => 1500],
-                $categories['kaleng']      => ['price_per_kg' => 8000],
-                $categories['kertas']      => ['price_per_kg' => 1000],
-            ]);
-        }
+        $bank1->acceptedCategories()->syncWithoutDetaching(
+            array_filter([
+                $cats['plastik-pet'] ?? null,
+                $cats['kardus']      ?? null,
+                $cats['kaleng']      ?? null,
+                $cats['kertas']      ?? null,
+            ])
+        );
 
-        // ── Bank Sampah Makmur ────────────────────────────────────────────────
+        // ── Bank Sampah Makmur ────────────────────────────────────────────
         $bank2 = WasteBank::updateOrCreate(
-            ['user_id' => $wb2User->id],
+            ['user_id' => $makmurUser->id],
             [
-                'name'            => 'Bank Sampah Makmur',
-                'address'         => 'Jl. Margonda Raya No. 12, Depok, Jawa Barat',
-                'latitude'        => -6.3924100,
-                'longitude'       => 106.8317100,
-                'phone'           => '021-7654321',
-                'operating_hours' => [
+                'name'                => 'Bank Sampah Makmur',
+                'address'             => 'Jl. Margonda Raya No. 12, Depok, Jawa Barat',
+                'latitude'            => -6.3924100,
+                'longitude'           => 106.8317100,
+                'phone'               => '021-7654321',
+                'description'         => 'Menerima kaca, plastik, dan logam. Pembayaran langsung tunai.',
+                'opening_hours'       => [
                     'senin'  => '07:00-16:00',
                     'selasa' => '07:00-16:00',
                     'rabu'   => '07:00-16:00',
@@ -73,18 +76,19 @@ class WasteBankSeeder extends Seeder
                     'sabtu'  => '07:00-13:00',
                     'minggu' => 'Tutup',
                 ],
-                'description' => 'Bank sampah dengan sistem penimbangan digital dan pembayaran langsung. Menerima kaca, plastik, dan logam.',
-                'is_active'   => true,
-                'is_verified' => true,
+                'is_open'             => true,
+                'verification_status' => 'verified',
+                'verified_by'         => $developer->id,
+                'verified_at'         => now(),
             ]
         );
 
-        if ($categories->has('kaca')) {
-            $bank2->acceptedCategories()->syncWithoutDetaching([
-                $categories['plastik-pet'] => ['price_per_kg' => 3200],
-                $categories['kaca']        => ['price_per_kg' => 500],
-                $categories['kaleng']      => ['price_per_kg' => 7500],
-            ]);
-        }
+        $bank2->acceptedCategories()->syncWithoutDetaching(
+            array_filter([
+                $cats['plastik-pet'] ?? null,
+                $cats['kaca']        ?? null,
+                $cats['kaleng']      ?? null,
+            ])
+        );
     }
 }

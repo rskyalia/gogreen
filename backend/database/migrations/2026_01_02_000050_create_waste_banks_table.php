@@ -10,22 +10,23 @@ return new class extends Migration
     {
         Schema::create('waste_banks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            // user_id: akun dengan role waste_bank
+            $table->foreignId('user_id')->unique()->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->text('address');
             $table->decimal('latitude', 10, 7);
             $table->decimal('longitude', 10, 7);
             $table->string('phone');
-            $table->json('operating_hours'); // { mon: "08:00-17:00", ... }
             $table->text('description')->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->boolean('is_verified')->default(false);
+            $table->json('opening_hours'); // {senin:'08:00-17:00', ...}
+            // is_open: status operasional real-time (buka/tutup hari ini)
+            $table->boolean('is_open')->default(false);
+            $table->enum('verification_status', ['pending', 'verified', 'rejected'])->default('pending');
+            $table->foreignId('verified_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('verified_at')->nullable();
             $table->timestamps();
-            $table->softDeletes();
 
-            $table->index('user_id');
-            $table->index('is_active');
-            $table->index('is_verified');
+            $table->index('verification_status');
             $table->index(['latitude', 'longitude']);
         });
     }

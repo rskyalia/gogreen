@@ -17,22 +17,20 @@ class WasteScan extends Model
         'material',
         'confidence',
         'green_score',
-        'score_label',
-        'risk_level',
-        'recommended_action',
+        'recommended_path',
         'raw_result',
     ];
 
     protected function casts(): array
     {
         return [
-            'confidence'  => 'decimal:4',
+            'confidence'  => 'decimal:2',
             'green_score' => 'integer',
             'raw_result'  => 'array',
         ];
     }
 
-    // ── Relations ─────────────────────────────────────────────────────────────
+    // ── Relations ─────────────────────────────────────────────────────────
 
     public function user(): BelongsTo
     {
@@ -44,13 +42,13 @@ class WasteScan extends Model
         return $this->belongsTo(WasteCategory::class);
     }
 
-    public function aiScanLog(): HasOne
+    public function mlApiLog(): HasOne
     {
-        return $this->hasOne(AiScanLog::class);
+        return $this->hasOne(MlApiLog::class);
     }
 
-    public function pointTransactions(): MorphMany
+    public function diySubmissions(): MorphMany
     {
-        return $this->morphMany(PointTransaction::class, 'reference');
+        return $this->morphMany(DiySubmission::class, 'reference');
     }
 }

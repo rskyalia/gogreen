@@ -13,52 +13,61 @@ class WasteCategorySeeder extends Seeder
             [
                 'name'          => 'Plastik PET',
                 'slug'          => 'plastik-pet',
-                'description'   => 'Botol minuman, wadah makanan berbahan PET (Polyethylene Terephthalate). Dapat didaur ulang menjadi serat tekstil, kemasan baru, dan berbagai produk lainnya.',
+                'description'   => 'Botol minuman & wadah makanan berbahan PET. Bisa didaur ulang menjadi serat tekstil dan kemasan baru.',
                 'is_recyclable' => true,
+                'is_upcyclable' => true,
+                'points_per_kg' => 30,
                 'icon'          => '🧴',
             ],
             [
                 'name'          => 'Kardus',
                 'slug'          => 'kardus',
-                'description'   => 'Kotak kardus, karton gelombang, dan kemasan kertas tebal. Mudah didaur ulang menjadi kertas baru atau bahan kemasan.',
+                'description'   => 'Kotak kardus dan karton gelombang. Mudah didaur ulang menjadi kertas baru atau bahan kemasan.',
                 'is_recyclable' => true,
+                'is_upcyclable' => true,
+                'points_per_kg' => 15,
                 'icon'          => '📦',
             ],
             [
                 'name'          => 'Kaleng',
                 'slug'          => 'kaleng',
-                'description'   => 'Kaleng aluminium (minuman, makanan) dan kaleng baja. Logam dapat didaur ulang secara terus-menerus tanpa kehilangan kualitas.',
+                'description'   => 'Kaleng aluminium dan kaleng baja. Logam dapat didaur ulang terus-menerus tanpa kehilangan kualitas.',
                 'is_recyclable' => true,
+                'is_upcyclable' => true,
+                'points_per_kg' => 50,
                 'icon'          => '🥫',
             ],
             [
                 'name'          => 'Kaca',
                 'slug'          => 'kaca',
-                'description'   => 'Botol kaca, toples, dan kaca lembaran. Dapat didaur ulang sepenuhnya dan dilebur menjadi produk kaca baru.',
+                'description'   => 'Botol kaca dan toples. Dapat didaur ulang sepenuhnya dan dilebur menjadi produk kaca baru.',
                 'is_recyclable' => true,
+                'is_upcyclable' => true,
+                'points_per_kg' => 10,
                 'icon'          => '🍶',
             ],
             [
                 'name'          => 'Organik',
                 'slug'          => 'organik',
-                'description'   => 'Sisa makanan, daun, ranting, dan bahan organik lainnya. Dapat diolah menjadi kompos atau biogas.',
+                'description'   => 'Sisa makanan, daun, dan ranting. Dapat diolah menjadi kompos atau biogas.',
                 'is_recyclable' => false,
+                'is_upcyclable' => true,
+                'points_per_kg' => 5,
                 'icon'          => '🌿',
             ],
             [
                 'name'          => 'Kertas',
                 'slug'          => 'kertas',
-                'description'   => 'Koran, majalah, buku bekas, dan kertas kantor. Dapat didaur ulang menjadi kertas baru dengan kualitas lebih rendah.',
+                'description'   => 'Koran, majalah, dan kertas kantor. Dapat didaur ulang menjadi kertas baru.',
                 'is_recyclable' => true,
+                'is_upcyclable' => true,
+                'points_per_kg' => 10,
                 'icon'          => '📰',
             ],
         ];
 
-        foreach ($categories as $category) {
-            WasteCategory::updateOrCreate(
-                ['slug' => $category['slug']],
-                $category
-            );
+        foreach ($categories as $data) {
+            WasteCategory::updateOrCreate(['slug' => $data['slug']], $data);
         }
     }
 }

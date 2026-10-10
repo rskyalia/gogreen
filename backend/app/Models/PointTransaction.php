@@ -10,27 +10,30 @@ class PointTransaction extends Model
 {
     protected $fillable = [
         'user_id',
-        'action_type',
+        'type',
         'points',
-        'description',
+        'balance_after',
         'reference_type',
         'reference_id',
+        'description',
     ];
 
     protected function casts(): array
     {
         return [
-            'points' => 'integer',
+            'points'        => 'integer',
+            'balance_after' => 'integer',
         ];
     }
 
-    // ── Relations ─────────────────────────────────────────────────────────────
+    // ── Relations ─────────────────────────────────────────────────────────
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** Polymorphic: Deposit | DiySubmission | RewardRedemption */
     public function reference(): MorphTo
     {
         return $this->morphTo();

@@ -8,10 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('waste_bank_accepted_categories', function (Blueprint $table) {
+        // Pivot: kategori sampah apa saja yang diterima oleh suatu bank sampah
+        Schema::create('waste_bank_categories', function (Blueprint $table) {
             $table->foreignId('waste_bank_id')->constrained()->cascadeOnDelete();
             $table->foreignId('waste_category_id')->constrained()->cascadeOnDelete();
-            $table->decimal('price_per_kg', 10, 2)->nullable();
 
             $table->primary(['waste_bank_id', 'waste_category_id']);
         });
@@ -19,6 +19,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('waste_bank_accepted_categories');
+        Schema::dropIfExists('waste_bank_categories');
     }
 };
