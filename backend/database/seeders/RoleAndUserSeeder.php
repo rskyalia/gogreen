@@ -15,13 +15,11 @@ class RoleAndUserSeeder extends Seeder
         // Reset cache permission
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // 1. Buat atau ambil Role
         $developerRole = Role::firstOrCreate(['name' => 'developer']);
         $userRole      = Role::firstOrCreate(['name' => 'user']);
         $bankRole      = Role::firstOrCreate(['name' => 'bank_sampah']);
         $komunitasRole = Role::firstOrCreate(['name' => 'komunitas_diy']);
 
-        // 2. Ubah data akun dummy admin jadi developer
         $usersData = [
             [
                 'name'     => 'Developer GoGreen',
@@ -49,7 +47,6 @@ class RoleAndUserSeeder extends Seeder
             ],
         ];
 
-        // 3. Loop untuk membuat user dan menugaskan role
         foreach ($usersData as $data) {
             $user = User::firstOrCreate(
                 ['email' => $data['email']],

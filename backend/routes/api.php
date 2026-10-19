@@ -7,8 +7,8 @@ use App\Http\Controllers\Api\WasteScanController;
 use App\Http\Controllers\Api\DiyGuideController;
 use App\Http\Controllers\Api\DiySubmissionController;
 
-// Public Route
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register/community', [AuthController::class, 'registerCommunity']);
 
 // Protected Routes (Wajib Pakai Token Bearer Sanctum)
 Route::middleware('auth:sanctum')->group(function () {

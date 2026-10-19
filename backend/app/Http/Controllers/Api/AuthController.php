@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-
+    
 class AuthController extends Controller
 {
     use ApiResponse;
@@ -33,4 +33,28 @@ class AuthController extends Controller
             'token' => $token,
         ], 'Login berhasil!');
     }
+
+    public function registerCommunity(Request $request)
+{
+    $request->validate([
+        'name'     => 'required|string|max:255',
+        'email'    => 'required|string|email|unique:users',
+        'password' => 'required|string|min:8',
+    ]);
+
+    $user = User::create([
+        'name'                => $request->name,
+        'email'               => $request->email,
+        'password'            => Hash::make($request->password),
+        'verification_status' => 'pending',
+    ]);
+
+    $user->assignRole('komunitas_diy');
+
+    return $this->successResponse(
+        $user,
+        'Pendaftaran akun Komunitas berhasil! Akun kamu sedang menunggu verifikasi Developer.',
+        201
+    );
+}
 }
