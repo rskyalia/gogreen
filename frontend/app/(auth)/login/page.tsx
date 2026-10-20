@@ -4,14 +4,15 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import type { ApiError } from '@/lib/api';
+import { Alert, Field, SubmitButton } from '@/components/auth/fields';
 
 export default function LoginPage() {
   const { login } = useAuth();
 
-  const [email, setEmail]         = useState('');
-  const [password, setPassword]   = useState('');
-  const [errors, setErrors]       = useState<Record<string, string>>({});
-  const [apiError, setApiError]   = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
@@ -20,7 +21,7 @@ export default function LoginPage() {
     setApiError('');
 
     const newErrors: Record<string, string> = {};
-    if (!email)    newErrors.email    = 'Email wajib diisi.';
+    if (!email) newErrors.email = 'Email wajib diisi.';
     if (!password) newErrors.password = 'Password wajib diisi.';
     if (Object.keys(newErrors).length) { setErrors(newErrors); return; }
 
@@ -42,50 +43,36 @@ export default function LoginPage() {
   }
 
   return (
-    <>
-      <h2 className="text-lg font-semibold text-gray-800 mb-5">Masuk ke Akun</h2>
+    <div className="rounded-[28px] border border-line bg-white p-7 sm:p-9">
+      <h1 className="font-serif text-3xl font-medium text-forest">Masuk ke akun</h1>
+      <p className="mt-2 text-sm text-muted">Lanjutkan ke dashboard-mu.</p>
 
       {apiError && (
-        <p className="mb-4 text-sm text-red-600">{apiError}</p>
+        <div className="mt-5">
+          <Alert tone="error">{apiError}</Alert>
+        </div>
       )}
 
-      <form onSubmit={handleSubmit} noValidate className="space-y-4">
-        <div>
-          <label htmlFor="email" className="block text-sm text-gray-700 mb-1">Email</label>
-          <input
-            id="email" type="email" value={email} autoComplete="email"
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="kamu@email.com"
-            className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500"
-          />
-          {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
+      <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+        <Field
+          id="email" label="Email" type="email" value={email} onChange={setEmail}
+          placeholder="kamu@email.com" error={errors.email} autoComplete="email"
+        />
+        <Field
+          id="password" label="Password" type="password" value={password} onChange={setPassword}
+          placeholder="Password kamu" error={errors.password} autoComplete="current-password"
+        />
+        <div className="pt-2">
+          <SubmitButton loading={isLoading}>{isLoading ? 'Memuat...' : 'Masuk'}</SubmitButton>
         </div>
-
-        <div>
-          <label htmlFor="password" className="block text-sm text-gray-700 mb-1">Password</label>
-          <input
-            id="password" type="password" value={password} autoComplete="current-password"
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-gray-500"
-          />
-          {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
-        </div>
-
-        <button
-          type="submit" disabled={isLoading}
-          className="w-full py-2 rounded bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium transition"
-        >
-          {isLoading ? 'Memuat...' : 'Masuk'}
-        </button>
       </form>
 
-      <p className="mt-5 text-center text-sm text-gray-500">
+      <p className="mt-6 text-center text-sm text-muted">
         Belum punya akun?{' '}
-        <Link href="/register" className="text-green-600 hover:underline">
+        <Link href="/register" className="font-semibold text-forest underline underline-offset-4">
           Daftar sekarang
         </Link>
       </p>
-    </>
+    </div>
   );
 }
