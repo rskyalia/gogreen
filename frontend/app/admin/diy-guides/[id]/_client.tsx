@@ -1,14 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/ui';
 import { api, firstError } from '@/lib/api';
 import { useToast } from '@/components/ui';
 import { DiyGuideForm } from '../_components/DiyGuideForm';
 
-export default function EditDiyGuideClient() {
-  const { id }   = useParams<{ id: string }>();
+export default function EditDiyGuideClient({ id }: { id: string }) {
   const router   = useRouter();
   const { toast } = useToast();
 

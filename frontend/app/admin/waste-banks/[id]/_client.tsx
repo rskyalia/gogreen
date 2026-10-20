@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle, XCircle, MapPin, Phone, Clock } from 'lucide-react';
 import {
   PageHeader, Card, CardHeader, Button, StatusBadge,
@@ -28,8 +28,7 @@ interface WasteBankDetail {
   accepted_categories: Array<{ id: number; name: string }>;
 }
 
-export default function WasteBankDetailClient() {
-  const { id }  = useParams<{ id: string }>();
+export default function WasteBankDetailClient({ id }: { id: string }) {
   const router  = useRouter();
   const { toast } = useToast();
 

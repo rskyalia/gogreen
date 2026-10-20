@@ -1,6 +1,8 @@
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar }  from '@/components/layout/Topbar';
 
+export const instant = false;
+
 export default function WasteBankLayout({
   children,
 }: {
