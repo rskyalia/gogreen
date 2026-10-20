@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WasteBankController as AdminWasteBankController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\User\MemberCardController;
 use App\Http\Controllers\WasteBank\DepositController;
 use App\Http\Controllers\WasteBank\MaterialRequestController;
 use App\Http\Controllers\WasteBank\ProfileController;
@@ -46,8 +47,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('status', [ProfileController::class, 'toggleStatus']);
             Route::put('categories', [ProfileController::class, 'syncCategories']);
 
-            // Member lookup
-            Route::get('members/{member_code}', [DepositController::class, 'findMember']);
+            // Member lookup — query string ?code= menerima member_code atau token
+            Route::get('members/lookup', [DepositController::class, 'findMember']);
 
             // Setoran — export harus sebelum {id} agar tidak terambil sebagai param
             Route::get('deposits/export', [DepositController::class, 'export']);
@@ -68,7 +69,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── User (warga) ──────────────────────────────────────────────────────
     Route::middleware('role:user')->prefix('user')->group(function () {
-        // Fase berikutnya: scan, diy-submissions, redemptions
+        Route::get('member-card', [MemberCardController::class, 'show']);
+        Route::middleware('throttle:member-token')->post('member-token', [MemberCardController::class, 'generateToken']);
     });
 
     // ── Community ─────────────────────────────────────────────────────────

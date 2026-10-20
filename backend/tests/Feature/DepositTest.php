@@ -41,7 +41,7 @@ class DepositTest extends TestCase
     public function test_officer_can_find_member_by_code(): void
     {
         $this->actingAs($this->officer)
-            ->getJson('/api/waste-bank/members/'.$this->member->member_code)
+            ->getJson('/api/waste-bank/members/lookup?code='.$this->member->member_code)
             ->assertOk()
             ->assertJsonPath('data.id', $this->member->id)
             ->assertJsonPath('data.member_code', $this->member->member_code)
@@ -52,9 +52,9 @@ class DepositTest extends TestCase
     public function test_invalid_member_code_returns_422(): void
     {
         $this->actingAs($this->officer)
-            ->getJson('/api/waste-bank/members/GG-INVALID')
+            ->getJson('/api/waste-bank/members/lookup?code=GG-INVALID')
             ->assertUnprocessable()
-            ->assertJsonPath('errors.member_code.0', 'Member dengan kode tersebut tidak ditemukan.');
+            ->assertJsonPath('errors.identifier.0', 'Member dengan kode tersebut tidak ditemukan.');
     }
 
     public function test_banned_member_cannot_be_found(): void
@@ -62,18 +62,23 @@ class DepositTest extends TestCase
         $banned = User::factory()->banned()->create();
 
         $this->actingAs($this->officer)
-            ->getJson('/api/waste-bank/members/'.$banned->member_code)
+            ->getJson('/api/waste-bank/members/lookup?code='.$banned->member_code)
             ->assertUnprocessable()
-            ->assertJsonPath('errors.member_code.0', 'Akun member ini telah diblokir.');
+            ->assertJsonPath('errors.identifier.0', 'Akun member ini telah diblokir.');
     }
 
     public function test_non_user_role_member_code_is_rejected(): void
     {
-        $dev = User::factory()->developer()->create();
-
-        // developer tidak punya member_code, test lewat lookup manual
+        // Kode tidak ada → rejected
         $this->actingAs($this->officer)
-            ->getJson('/api/waste-bank/members/NOTEXIST')
+            ->getJson('/api/waste-bank/members/lookup?code=GG-NOTEXIST')
+            ->assertUnprocessable();
+    }
+
+    public function test_lookup_without_code_returns_422(): void
+    {
+        $this->actingAs($this->officer)
+            ->getJson('/api/waste-bank/members/lookup')
             ->assertUnprocessable();
     }
 

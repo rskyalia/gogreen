@@ -2,12 +2,13 @@
 
 namespace App\Services;
 
+use App\Http\Controllers\User\MemberCardController;
 use App\Models\Deposit;
 use App\Models\DepositItem;
 use App\Models\User;
 use App\Models\WasteBank;
 use App\Models\WasteCategory;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -16,35 +17,93 @@ class DepositService
     public function __construct(private readonly PointService $pointService) {}
 
     /**
-     * Cari member berdasarkan member_code.
-     * Mengembalikan User jika valid; melempar exception jika tidak.
+     * Cari member berdasarkan member_code ATAU token QR sekali pakai.
      *
-     * @throws ModelNotFoundException
+     * Logika resolusi:
+     *   - Jika $identifier diawali "GG-" → perlakukan sebagai member_code.
+     *   - Selain itu → perlakukan sebagai token QR; cari user_id di cache.
+     *
+     * Mengembalikan User jika valid; melempar ValidationException jika tidak.
+     *
      * @throws ValidationException
      */
-    public function findMember(string $memberCode): User
+    public function findMember(string $identifier): User
     {
-        $user = User::where('member_code', $memberCode)->first();
+        if (str_starts_with(strtoupper($identifier), 'GG-')) {
+            return $this->findMemberByCode($identifier);
+        }
+
+        return $this->findMemberByToken($identifier);
+    }
+
+    /**
+     * Cari member berdasarkan member_code.
+     *
+     * @throws ValidationException
+     */
+    private function findMemberByCode(string $memberCode): User
+    {
+        $user = User::where('member_code', strtoupper($memberCode))->first();
 
         if (! $user) {
             throw ValidationException::withMessages([
-                'member_code' => ['Member dengan kode tersebut tidak ditemukan.'],
+                'identifier' => ['Member dengan kode tersebut tidak ditemukan.'],
             ]);
         }
 
+        $this->assertValidMember($user);
+
+        return $user;
+    }
+
+    /**
+     * Cari member berdasarkan token QR.
+     * Token tidak dihanguskan di sini — penghangusan dilakukan di dalam transaksi store().
+     *
+     * @throws ValidationException
+     */
+    private function findMemberByToken(string $token): User
+    {
+        $cacheKey = MemberCardController::tokenCacheKey($token);
+        $userId = Cache::get($cacheKey);
+
+        if (! $userId) {
+            throw ValidationException::withMessages([
+                'identifier' => ['Token QR tidak valid atau sudah kedaluwarsa.'],
+            ]);
+        }
+
+        $user = User::find($userId);
+
+        if (! $user) {
+            throw ValidationException::withMessages([
+                'identifier' => ['Token QR tidak valid atau sudah kedaluwarsa.'],
+            ]);
+        }
+
+        $this->assertValidMember($user);
+
+        return $user;
+    }
+
+    /**
+     * Validasi bahwa user adalah anggota aktif yang tidak diblokir.
+     *
+     * @throws ValidationException
+     */
+    private function assertValidMember(User $user): void
+    {
         if ($user->role !== 'user') {
             throw ValidationException::withMessages([
-                'member_code' => ['Kode yang diberikan bukan milik anggota.'],
+                'identifier' => ['Identitas yang diberikan bukan milik anggota.'],
             ]);
         }
 
         if ($user->isBanned()) {
             throw ValidationException::withMessages([
-                'member_code' => ['Akun member ini telah diblokir.'],
+                'identifier' => ['Akun member ini telah diblokir.'],
             ]);
         }
-
-        return $user;
     }
 
     /**
@@ -94,13 +153,30 @@ class DepositService
             $wasteBank, $recorder, $data, $categories
         ): Deposit {
             // 1. Kunci baris user untuk mencegah race condition saldo
-            $member = User::where('member_code', $data['member_code'])
-                ->lockForUpdate()
-                ->firstOrFail();
+            $identifier = $data['member_code'] ?? $data['member_token'];
+            $isToken = ! isset($data['member_code']);
+
+            if ($isToken) {
+                // Resolusi token → user_id (di dalam transaksi agar atomik)
+                $cacheKey = MemberCardController::tokenCacheKey($identifier);
+                $userId = Cache::get($cacheKey);
+
+                if (! $userId) {
+                    throw ValidationException::withMessages([
+                        'identifier' => ['Token QR tidak valid atau sudah kedaluwarsa.'],
+                    ]);
+                }
+
+                $member = User::where('id', $userId)->lockForUpdate()->firstOrFail();
+            } else {
+                $member = User::where('member_code', strtoupper($identifier))
+                    ->lockForUpdate()
+                    ->firstOrFail();
+            }
 
             if ($member->isBanned()) {
                 throw ValidationException::withMessages([
-                    'member_code' => ['Akun member ini telah diblokir.'],
+                    'identifier' => ['Akun member ini telah diblokir.'],
                 ]);
             }
 
@@ -140,6 +216,12 @@ class DepositService
             // Muat relasi wasteBank agar dipakai dalam description
             $deposit->load('wasteBank');
             $this->pointService->creditDeposit($member, $deposit, $totalPoints);
+
+            // 6. Hanguskan token QR agar tidak dapat dipakai dua kali
+            if ($isToken) {
+                Cache::forget(MemberCardController::tokenCacheKey($identifier));
+                Cache::forget(MemberCardController::userTokenPointerKey($member->id));
+            }
 
             // Muat semua relasi yang diperlukan oleh DepositResource
             return $deposit->loadMissing([

@@ -16,12 +16,21 @@ class DepositController extends Controller
     public function __construct(private readonly DepositService $depositService) {}
 
     /**
-     * GET /api/waste-bank/members/{member_code}
+     * GET /api/waste-bank/members/lookup?code=
      * Cari anggota sebelum membuat setoran.
+     * Menerima member_code (GG-XXXXXX) ATAU token QR 32 karakter.
      */
-    public function findMember(Request $request, string $memberCode): JsonResponse
+    public function findMember(Request $request): JsonResponse
     {
-        $member = $this->depositService->findMember($memberCode);
+        $code = $request->query('code', '');
+
+        if (! $code) {
+            return response()->json([
+                'message' => 'Parameter code wajib diisi.',
+            ], 422);
+        }
+
+        $member = $this->depositService->findMember($code);
 
         return response()->json([
             'data' => new MemberResource($member),

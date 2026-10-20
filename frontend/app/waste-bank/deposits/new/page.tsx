@@ -72,7 +72,10 @@ export default function NewDepositPage() {
   const [query, setQuery]           = useState('');
   const [searching, setSearching]   = useState(false);
   const [lookupError, setLookupError] = useState('');
+  // Member yang ditemukan (bisa via kode atau token)
   const [member, setMember]         = useState<Member | null>(null);
+  // Simpan token yang dipakai untuk lookup, agar bisa dikirim saat submit
+  const [resolvedToken, setResolvedToken] = useState<string | null>(null);
   const [showQr, setShowQr]         = useState(false);
 
   // Step 2 — form
@@ -106,11 +109,17 @@ export default function NewDepositPage() {
     setSearching(true);
     setLookupError('');
     setMember(null);
+    setResolvedToken(null);
     try {
       const { data } = await api.get<{ data: Member }>(
-        `/waste-bank/members/${encodeURIComponent(code.trim().toUpperCase())}`
+        `/waste-bank/members/lookup?code=${encodeURIComponent(code.trim())}`
       );
       setMember(data);
+      // Simpan token jika bukan member_code (bukan diawali GG-)
+      const upper = code.trim().toUpperCase();
+      if (!upper.startsWith('GG-')) {
+        setResolvedToken(code.trim());
+      }
     } catch (err) {
       setLookupError(firstError(err));
     } finally {
@@ -141,7 +150,10 @@ export default function NewDepositPage() {
         member_balance: number;
         message: string;
       }>('/waste-bank/deposits', {
-        member_code: member.member_code,
+        // Kirim token jika tersedia, fallback ke member_code
+        ...(resolvedToken
+          ? { member_token: resolvedToken }
+          : { member_code: member.member_code }),
         notes:       notes || undefined,
         items: lines
           .filter((l) => l.waste_category_id > 0 && parseFloat(l.weight_kg) > 0)
@@ -168,6 +180,7 @@ export default function NewDepositPage() {
     setStep('lookup');
     setQuery('');
     setMember(null);
+    setResolvedToken(null);
     setLookupError('');
     setLines([{ waste_category_id: 0, weight_kg: '' }]);
     setNotes('');
@@ -200,15 +213,14 @@ export default function NewDepositPage() {
           <p className="mb-4 text-sm text-muted">
             Masukkan kode member atau scan QR Card.
           </p>
-
           <div className="flex gap-2">
             <Input
               value={query}
-              onChange={(e) => setQuery(e.target.value.toUpperCase())}
+              onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && doLookup(query)}
-              placeholder="GG-XXXXXX"
+              placeholder="GG-XXXXXX atau scan QR"
               wrapClass="flex-1"
-              aria-label="Kode member"
+              aria-label="Kode member atau token QR"
             />
             <Button
               variant="secondary" size="sm" icon={Search}

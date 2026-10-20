@@ -24,10 +24,20 @@ class AppServiceProvider extends ServiceProvider
         // Rate limiter untuk login — 5 percobaan per menit per kombinasi email+IP
         RateLimiter::for('login', function (Request $request) {
             return Limit::perMinute(5)
-                ->by($request->input('email') . '|' . $request->ip())
+                ->by($request->input('email').'|'.$request->ip())
                 ->response(fn () => response()->json([
                     'message' => 'Terlalu banyak percobaan login. Coba lagi dalam 1 menit.',
-                    'errors'  => [],
+                    'errors' => [],
+                ], 429));
+        });
+
+        // Rate limiter untuk generate member-token — 10 per menit per user
+        RateLimiter::for('member-token', function (Request $request) {
+            return Limit::perMinute(10)
+                ->by(optional($request->user())->id ?: $request->ip())
+                ->response(fn () => response()->json([
+                    'message' => 'Terlalu banyak permintaan token. Coba lagi sebentar.',
+                    'errors' => [],
                 ], 429));
         });
 
