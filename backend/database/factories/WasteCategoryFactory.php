@@ -21,13 +21,14 @@ class WasteCategoryFactory extends Factory
         ]);
 
         return [
-            'name'          => $name,
-            'slug'          => Str::slug($name),
-            'description'   => fake()->sentence(),
+            'name' => $name,
+            'slug' => Str::slug($name),
+            'description' => fake()->sentence(),
             'is_recyclable' => true,
             'is_upcyclable' => true,
             'points_per_kg' => fake()->randomElement([10, 20, 30, 50]),
-            'icon'          => null,
+            'icon' => null,
+            'is_active' => true,
         ];
     }
 }

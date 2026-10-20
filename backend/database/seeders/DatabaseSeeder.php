@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             WasteBankSeeder::class,      // 3
             DiyGuideSeeder::class,       // 4
             RewardSeeder::class,         // 5
+            MaterialRequestSeeder::class, // 6
         ]);
     }
 }

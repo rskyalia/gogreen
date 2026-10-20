@@ -1,31 +1,44 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Plus_Jakarta_Sans, Newsreader } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
+import { ToastProvider } from '@/components/ui/Toast';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets:  ['latin'],
+  display:  'swap',
+  variable: '--font-jakarta',
 });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
+const newsreader = Newsreader({
+  subsets:  ['latin'],
+  display:  'swap',
+  variable: '--font-newsreader',
 });
+
 
 export const metadata: Metadata = {
-  title: 'GO GREEN',
-  description: 'Platform AI untuk pemindaian dan pemanfaatan sampah.',
+  title:       'GO GREEN',
+  description: 'Platform AI untuk pemindaian dan pengelolaan sampah.',
 };
 
-export default function RootLayout({ children }: LayoutProps<'/'>) {
+/* ─── Root layout ────────────────────────────────────────────────────────── */
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="id"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${jakarta.variable} ${newsreader.variable} h-full`}
     >
       <body className="min-h-full flex flex-col">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </AuthProvider>
       </body>
     </html>
   );

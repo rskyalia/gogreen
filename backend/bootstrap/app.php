@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\WasteBankVerifiedMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -18,10 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Alias middleware role agar bisa dipakai sebagai 'role:developer', dll.
         $middleware->alias([
             'role' => RoleMiddleware::class,
+            'waste_bank.verified' => WasteBankVerifiedMiddleware::class,
         ]);
 
         // CORS untuk semua request
-        $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
+        $middleware->append(HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Semua request ke /api/* selalu terima JSON response
@@ -34,7 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'message' => 'Data yang diberikan tidak valid.',
-                    'errors'  => $e->errors(),
+                    'errors' => $e->errors(),
                 ], 422);
             }
         });

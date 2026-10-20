@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DiyGuide extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'waste_category_id',
         'created_by',
@@ -27,12 +30,12 @@ class DiyGuide extends Model
     protected function casts(): array
     {
         return [
-            'materials'         => 'array',
-            'steps'             => 'array',
+            'materials' => 'array',
+            'steps' => 'array',
             'estimated_minutes' => 'integer',
-            'estimated_cost'    => 'integer',
-            'reward_points'     => 'integer',
-            'is_published'      => 'boolean',
+            'estimated_cost' => 'integer',
+            'reward_points' => 'integer',
+            'is_published' => 'boolean',
         ];
     }
 

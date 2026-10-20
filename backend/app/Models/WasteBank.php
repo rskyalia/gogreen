@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WasteBank extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'user_id',
         'name',
@@ -27,11 +30,11 @@ class WasteBank extends Model
     protected function casts(): array
     {
         return [
-            'opening_hours'       => 'array',
-            'is_open'             => 'boolean',
-            'latitude'            => 'decimal:7',
-            'longitude'           => 'decimal:7',
-            'verified_at'         => 'datetime',
+            'opening_hours' => 'array',
+            'is_open' => 'boolean',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
+            'verified_at' => 'datetime',
         ];
     }
 

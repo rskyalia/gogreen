@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -10,6 +11,8 @@ use Illuminate\Validation\ValidationException;
 
 class DiySubmission extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'user_id',
         'diy_guide_id',
@@ -25,7 +28,7 @@ class DiySubmission extends Model
     protected function casts(): array
     {
         return [
-            'reviewed_at'    => 'datetime',
+            'reviewed_at' => 'datetime',
             'points_awarded' => 'integer',
         ];
     }
@@ -44,15 +47,15 @@ class DiySubmission extends Model
         }
 
         DB::transaction(function () use ($reviewer) {
-            $guide  = $this->diyGuide;
-            $user   = $this->user;
+            $guide = $this->diyGuide;
+            $user = $this->user;
             $points = $guide->reward_points;
 
             // Update submission
             $this->update([
-                'status'         => 'approved',
-                'reviewed_by'    => $reviewer->id,
-                'reviewed_at'    => now(),
+                'status' => 'approved',
+                'reviewed_by' => $reviewer->id,
+                'reviewed_at' => now(),
                 'points_awarded' => $points,
             ]);
 
@@ -63,13 +66,13 @@ class DiySubmission extends Model
 
                 // Catat di ledger
                 PointTransaction::create([
-                    'user_id'        => $user->id,
-                    'type'           => 'diy_approved',
-                    'points'         => $points,
-                    'balance_after'  => $newBalance,
+                    'user_id' => $user->id,
+                    'type' => 'diy_approved',
+                    'points' => $points,
+                    'balance_after' => $newBalance,
                     'reference_type' => self::class,
-                    'reference_id'   => $this->id,
-                    'description'    => "DIY selesai: {$guide->title}",
+                    'reference_id' => $this->id,
+                    'description' => "DIY selesai: {$guide->title}",
                 ]);
             }
         });
@@ -90,7 +93,7 @@ class DiySubmission extends Model
         }
 
         $this->update([
-            'status'      => 'rejected',
+            'status' => 'rejected',
             'review_note' => $reviewNote,
             'reviewed_by' => $reviewer->id,
             'reviewed_at' => now(),

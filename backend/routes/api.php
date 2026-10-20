@@ -1,74 +1,130 @@
 <?php
 
+use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\DiyGuideController;
+use App\Http\Controllers\Admin\DiySubmissionController;
+use App\Http\Controllers\Admin\MlStatusController;
+use App\Http\Controllers\Admin\RedemptionController;
+use App\Http\Controllers\Admin\RewardController;
+use App\Http\Controllers\Admin\StatsController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\WasteBankController as AdminWasteBankController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\WasteBank\DepositController;
+use App\Http\Controllers\WasteBank\MaterialRequestController;
+use App\Http\Controllers\WasteBank\ProfileController;
+use App\Http\Controllers\WasteBank\StatsController as WasteBankStatsController;
 use Illuminate\Support\Facades\Route;
-
-/*
-|--------------------------------------------------------------------------
-| API Routes — GO GREEN
-|--------------------------------------------------------------------------
-|
-| Semua route di sini sudah ter-prefix /api secara otomatis.
-| Struktur:
-|   - Auth publik  : /api/register, /api/login
-|   - Auth privat  : /api/logout, /api/me
-|   - User         : /api/user/*
-|   - Waste Bank   : /api/waste-bank/*
-|   - Community    : /api/community/*
-|   - Developer    : /api/developer/*
-|
-*/
 
 // ── Auth publik ───────────────────────────────────────────────────────────
 
 Route::prefix('auth')->group(function () {
-    // Rate limit: 5 percobaan/menit per email+IP (lihat AppServiceProvider)
     Route::middleware('throttle:login')->post('/login', [AuthController::class, 'login']);
-
-    // Register: tanpa extra payload → user
-    //           dengan "waste_bank"  → waste_bank (pending)
-    //           dengan "community"   → community
     Route::post('/register', [AuthController::class, 'register']);
 });
 
-// ── Auth privat (butuh token Sanctum) ────────────────────────────────────
+// ── Auth privat ───────────────────────────────────────────────────────────
 
 Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 
-    // ── User (warga) ──────────────────────────────────────────────────────
-    Route::middleware('role:user')->prefix('user')->group(function () {
-        // Fase berikutnya:
-        // Route::apiResource('scans', WasteScanController::class);
-        // Route::apiResource('diy-submissions', DiySubmissionController::class);
-        // Route::apiResource('redemptions', RewardRedemptionController::class);
+    // ── Waste Bank ────────────────────────────────────────────────────────
+    Route::middleware('role:waste_bank')->prefix('waste-bank')->group(function () {
+
+        // Profil: dapat diakses meski belum verified (agar bisa lihat status verifikasi)
+        Route::get('profile', [ProfileController::class, 'show']);
+        Route::put('profile', [ProfileController::class, 'update']);
+
+        // Kategori yang tersedia (untuk checklist profil, tidak perlu verified)
+        Route::get('categories/available', [ProfileController::class, 'availableCategories']);
+
+        // Rute yang butuh verified
+        Route::middleware('waste_bank.verified')->group(function () {
+            // Toggle buka/tutup hanya relevan setelah verified
+            Route::patch('status', [ProfileController::class, 'toggleStatus']);
+            Route::put('categories', [ProfileController::class, 'syncCategories']);
+
+            // Member lookup
+            Route::get('members/{member_code}', [DepositController::class, 'findMember']);
+
+            // Setoran — export harus sebelum {id} agar tidak terambil sebagai param
+            Route::get('deposits/export', [DepositController::class, 'export']);
+            Route::get('deposits', [DepositController::class, 'index']);
+            Route::post('deposits', [DepositController::class, 'store']);
+            Route::get('deposits/{id}', [DepositController::class, 'show']);
+
+            // Statistik
+            Route::get('stats', [WasteBankStatsController::class, 'index']);
+
+            // Material requests
+            Route::get('material-requests', [MaterialRequestController::class, 'index']);
+            Route::post('material-requests/{id}/responses', [MaterialRequestController::class, 'respond']);
+            Route::get('responses', [MaterialRequestController::class, 'myResponses']);
+            Route::patch('responses/{id}/delivered', [MaterialRequestController::class, 'markDelivered']);
+        });
     });
 
-    // ── Waste Bank (petugas) ──────────────────────────────────────────────
-    Route::middleware('role:waste_bank')->prefix('waste-bank')->group(function () {
-        // Route::post('deposits', [DepositController::class, 'store']);
-        // Route::get('deposits', [DepositController::class, 'index']);
-        // Route::get('users/by-member-code/{code}', [UserLookupController::class, 'byMemberCode']);
+    // ── User (warga) ──────────────────────────────────────────────────────
+    Route::middleware('role:user')->prefix('user')->group(function () {
+        // Fase berikutnya: scan, diy-submissions, redemptions
     });
 
     // ── Community ─────────────────────────────────────────────────────────
     Route::middleware('role:community')->prefix('community')->group(function () {
-        // Route::apiResource('diy-guides', CommunityDiyGuideController::class);
-        // Route::apiResource('material-requests', MaterialRequestController::class);
+        // Fase berikutnya: diy-guides, material-requests (dari sisi community)
     });
 
-    // ── Developer (admin platform) ────────────────────────────────────────
-    Route::middleware('role:developer')->prefix('developer')->group(function () {
-        // Route::post('waste-banks/{id}/verify', [WasteBankVerificationController::class, 'verify']);
-        // Route::post('users/{id}/ban', [UserManagementController::class, 'ban']);
-        // Route::get('ml-logs', [MlApiLogController::class, 'index']);
+    // ── Developer ─────────────────────────────────────────────────────────
+    Route::middleware('role:developer')->prefix('admin')->group(function () {
+        // Stats ringkasan
+        Route::get('stats', [StatsController::class, 'index']);
+
+        // Bank sampah — verifikasi
+        Route::get('waste-banks', [AdminWasteBankController::class, 'index']);
+        Route::get('waste-banks/{id}', [AdminWasteBankController::class, 'show']);
+        Route::patch('waste-banks/{id}/verify', [AdminWasteBankController::class, 'verify']);
+
+        // Users — status management
+        Route::get('users', [UserController::class, 'index']);
+        Route::get('users/{id}', [UserController::class, 'show']);
+        Route::patch('users/{id}/status', [UserController::class, 'updateStatus']);
+
+        // Kategori sampah — CRUD
+        Route::get('categories', [CategoryController::class, 'index']);
+        Route::post('categories', [CategoryController::class, 'store']);
+        Route::get('categories/{id}', [CategoryController::class, 'show']);
+        Route::put('categories/{id}', [CategoryController::class, 'update']);
+        Route::delete('categories/{id}', [CategoryController::class, 'destroy']);
+
+        // Rewards — CRUD
+        Route::get('rewards', [RewardController::class, 'index']);
+        Route::post('rewards', [RewardController::class, 'store']);
+        Route::get('rewards/{id}', [RewardController::class, 'show']);
+        Route::put('rewards/{id}', [RewardController::class, 'update']);
+        Route::delete('rewards/{id}', [RewardController::class, 'destroy']);
+
+        // Redemptions — list + status update
+        Route::get('redemptions', [RedemptionController::class, 'index']);
+        Route::patch('redemptions/{id}', [RedemptionController::class, 'update']);
+
+        // ML status monitoring
+        Route::get('ml-status', [MlStatusController::class, 'index']);
     });
 
-    // ── Route yang bisa diakses beberapa role ─────────────────────────────
-    // Contoh: developer dan community bisa buat panduan DIY
-    Route::middleware('role:developer,community')->prefix('diy')->group(function () {
-        // Route::apiResource('guides', DiyGuideController::class);
+    // Developer + Community — panduan DIY
+    Route::middleware('role:developer,community')->prefix('admin')->group(function () {
+        Route::get('diy-guides', [DiyGuideController::class, 'index']);
+        Route::post('diy-guides', [DiyGuideController::class, 'store']);
+        Route::get('diy-guides/{id}', [DiyGuideController::class, 'show']);
+        Route::put('diy-guides/{id}', [DiyGuideController::class, 'update']);
+        Route::delete('diy-guides/{id}', [DiyGuideController::class, 'destroy']);
+    });
+
+    // Developer saja — validasi karya
+    Route::middleware('role:developer')->prefix('admin')->group(function () {
+        Route::get('diy-submissions', [DiySubmissionController::class, 'index']);
+        Route::patch('diy-submissions/{id}/review', [DiySubmissionController::class, 'review']);
     });
 });
