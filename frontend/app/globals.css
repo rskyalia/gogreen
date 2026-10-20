@@ -7,6 +7,7 @@
   --color-mint: #cfeedd;
   --color-mist: #e1f3e9;
   --color-paper: #f5faf7;
+<<<<<<< HEAD
 
   --color-sun: #fdecc4;
   --color-sun-ink: #8a5a00;
@@ -56,4 +57,67 @@ body {
 
 .animate-slide-up {
   animation: slide-up 0.18s ease-out;
+=======
+  --color-sun: #fdecc4;
+  --color-sun-ink: #8a5a00;
+  --color-ink: #1d3b2f;
+  --color-muted: #6b8279;
+  --color-line: #d7e6dd;
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  section[id] {
+    scroll-margin-top: 4.5rem;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-leaf);
+    outline-offset: 3px;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+>>>>>>> 9ff230b1739e49a92b2d5eb0d7c61f8464a4b036
+}
+
+.animate-rise {
+  animation: rise 0.7s 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-rise {
+    animation: none;
+  }
+}
+
+button,
+Link,
+a {
+  cursor: pointer;
 }
