@@ -3,6 +3,8 @@
 interface PageHeaderProps {
   title:        string;
   description?: string;
+  /** Micro-label uppercase di atas judul, mis. "Ringkasan hari ini" */
+  eyebrow?:     string;
   /** Konten di sebelah kanan — biasanya tombol aksi */
   action?:      React.ReactNode;
   className?:   string;
@@ -11,6 +13,7 @@ interface PageHeaderProps {
 export function PageHeader({
   title,
   description,
+  eyebrow,
   action,
   className = '',
 }: PageHeaderProps) {
@@ -22,12 +25,22 @@ export function PageHeader({
       ].join(' ')}
     >
       <div>
-        {/* Judul memakai font-serif sesuai spesifikasi desain */}
-        <h1 className="font-serif text-2xl font-semibold text-ink leading-tight">
+        {eyebrow && (
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-leaf">
+            {eyebrow}
+          </p>
+        )}
+        {/* Judul memakai font-serif warna forest sesuai spesifikasi desain */}
+        <h1
+          className={[
+            'font-serif text-2xl sm:text-3xl font-medium leading-tight text-forest',
+            eyebrow ? 'mt-2' : '',
+          ].join(' ')}
+        >
           {title}
         </h1>
         {description && (
-          <p className="mt-1 text-sm text-muted">{description}</p>
+          <p className="mt-2 text-sm text-muted">{description}</p>
         )}
       </div>
 

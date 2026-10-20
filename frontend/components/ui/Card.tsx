@@ -39,7 +39,7 @@ export function CardHeader({
   return (
     <div className={['flex items-start justify-between gap-4 mb-5', className].join(' ')}>
       <div>
-        <h2 className="text-base font-semibold text-ink leading-snug">{title}</h2>
+        <h2 className="font-serif text-lg font-medium text-forest leading-snug">{title}</h2>
         {description && (
           <p className="text-sm text-muted mt-0.5">{description}</p>
         )}

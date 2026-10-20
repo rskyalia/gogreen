@@ -87,16 +87,9 @@ export default function WasteBankDashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
+        eyebrow="Bank sampah"
         title="Ringkasan"
         description={wb?.name ?? 'Bank Sampah'}
-        action={
-          <Button
-            icon={ArrowDownToLine} size="sm"
-            onClick={() => router.push('/waste-bank/deposits/new')}
-          >
-            Input Setoran
-          </Button>
-        }
       />
 
       {/* Banner verifikasi */}
@@ -112,6 +105,45 @@ export default function WasteBankDashboardPage() {
         </div>
       )}
 
+      {/* Hero banner — meniru hero user dashboard */}
+      <section className="grid overflow-hidden rounded-2xl bg-mint md:grid-cols-[1.1fr_1fr]">
+        <div className="p-7 sm:p-8">
+          <p className="font-serif italic text-leaf">Dream It. Build It. Change It.</p>
+          <h2 className="mt-3 font-serif text-3xl font-medium leading-tight text-forest">
+            {wb?.verification_status === 'verified'
+              ? `Selamat bertugas, ${wb.name}!`
+              : 'Bergabunglah menjaga bumi bersama kami'}
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-ink/75">
+            Catat setoran anggota, pantau berat per kategori, dan bantu warga
+            menukar sampah menjadi poin dan reward.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => router.push('/waste-bank/deposits/new')}
+              className="flex items-center gap-2 rounded-full bg-forest px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-forest-deep"
+            >
+              <ArrowDownToLine className="size-3.5" aria-hidden="true" />
+              Input Setoran
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/waste-bank/deposits')}
+              className="rounded-full border border-forest/30 px-5 py-2.5 text-xs font-semibold text-forest transition-colors hover:bg-white/60"
+            >
+              Lihat Rekapan
+            </button>
+          </div>
+        </div>
+        {/* Panel dekoratif bernuansa organik — meniru tile landing page */}
+        <div className="relative hidden min-h-56 md:block" aria-hidden="true">
+          <div className="absolute right-10 top-8 size-36 rounded-t-full rounded-b-[24px] bg-white/50" />
+          <div className="absolute bottom-6 right-32 size-24 rounded-[999px_999px_999px_0] bg-forest" />
+          <div className="absolute bottom-16 right-4 size-20 rounded-full border border-forest/20 bg-sun" />
+        </div>
+      </section>
+
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {loadingStats ? (
@@ -123,20 +155,21 @@ export default function WasteBankDashboardPage() {
               label="Setoran Hari Ini"
               value={stats?.deposits_today ?? 0}
               unit="setoran"
+              tone="mint"
             />
             <StatCard
               icon={Scale}
               label="Total Berat Hari Ini"
               value={stats ? Number(stats.total_kg_today).toFixed(1) : '0'}
               unit="kg"
-              iconClass="text-forest"
+              tone="forest"
             />
             <StatCard
               icon={Users}
               label="Penyetor Unik"
               value={stats?.unique_depositors ?? 0}
               unit="orang"
-              iconClass="text-sun-ink"
+              tone="sun"
             />
           </>
         )}
@@ -255,12 +288,14 @@ export default function WasteBankDashboardPage() {
           label="Input Setoran Baru"
           description="Catat setoran sampah dari anggota"
           icon={ArrowDownToLine}
+          tone="mint"
         />
         <QuickLink
           href="/waste-bank/deposits"
           label="Lihat Rekapan"
           description="Riwayat semua setoran"
           icon={Scale}
+          tone="forest"
         />
       </div>
     </div>
@@ -279,23 +314,25 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
 }
 
 function QuickLink({
-  href, label, description, icon: Icon,
+  href, label, description, icon: Icon, tone = 'mint',
 }: {
   href: string; label: string; description: string; icon: React.ElementType;
+  tone?: 'mint' | 'forest';
 }) {
   return (
     <Link
       href={href}
-      className="group flex items-center gap-4 rounded-xl border border-line bg-white
+      className="group flex items-center gap-4 rounded-2xl border border-line bg-white
                  p-4 transition-colors hover:border-leaf hover:bg-mist"
     >
-      <div
-        className="flex h-10 w-10 shrink-0 items-center justify-center
-                   rounded-xl bg-mist text-leaf group-hover:bg-mint"
+      <span
+        className={`grid size-11 shrink-0 place-items-center rounded-2xl ${
+          tone === 'forest' ? 'bg-forest text-mint' : 'bg-mint text-forest'
+        }`}
         aria-hidden="true"
       >
-        <Icon size={18} strokeWidth={1.75} />
-      </div>
+        <Icon size={20} strokeWidth={1.75} />
+      </span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-ink">{label}</p>
         <p className="text-xs text-muted">{description}</p>

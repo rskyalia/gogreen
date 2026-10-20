@@ -23,7 +23,8 @@ export { Textarea }        from './Textarea';
 export type { TextareaProps } from './Textarea';
 
 export { PageHeader }      from './PageHeader';
-export { StatCard }        from './StatCard';
+export { StatCard, TONE_CHIP } from './StatCard';
+export type { StatCardTone }   from './StatCard';
 
 export { DataTable }       from './DataTable';
 export type { Column, PaginationMeta } from './DataTable';

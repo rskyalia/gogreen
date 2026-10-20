@@ -10,7 +10,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import {
   PageHeader, StatCard, Card, CardHeader,
-  StatusBadge, SkeletonStatCard,
+  StatusBadge, SkeletonStatCard, TONE_CHIP,
 } from '@/components/ui';
 import { api, firstError } from '@/lib/api';
 import { useToast } from '@/components/ui';
@@ -37,16 +37,17 @@ interface MenuItem {
   label: string;
   desc:  string;
   icon:  LucideIcon;
+  tone:  'mint' | 'sun' | 'forest' | 'mist';
 }
 
 const MENU_ITEMS: MenuItem[] = [
-  { href: '/admin/waste-banks',     label: 'Verifikasi Mitra',  desc: 'Tinjau dan setujui pendaftaran bank sampah baru',  icon: CheckCircle },
-  { href: '/admin/users',           label: 'Pengguna',          desc: 'Kelola akun warga, komunitas, dan petugas',        icon: Users       },
-  { href: '/admin/categories',      label: 'Kategori Sampah',   desc: 'Atur kategori dan nilai poin per kg',              icon: Tag         },
-  { href: '/admin/diy-guides',      label: 'Panduan DIY',       desc: 'Kelola panduan daur ulang untuk komunitas',        icon: BookOpen    },
-  { href: '/admin/diy-submissions', label: 'Validasi Karya',    desc: 'Tinjau kiriman karya daur ulang pengguna',         icon: Image       },
-  { href: '/admin/rewards',         label: 'Katalog Reward',    desc: 'Atur hadiah yang bisa ditukar dengan poin',        icon: Gift        },
-  { href: '/admin/ml-status',       label: 'Pantau API ML',     desc: 'Monitor log dan performa model AI scan sampah',    icon: Activity    },
+  { href: '/admin/waste-banks',     label: 'Verifikasi Mitra',  desc: 'Tinjau dan setujui pendaftaran bank sampah baru',  icon: CheckCircle, tone: 'mint'   },
+  { href: '/admin/users',           label: 'Pengguna',          desc: 'Kelola akun warga, komunitas, dan petugas',        icon: Users,       tone: 'forest' },
+  { href: '/admin/categories',      label: 'Kategori Sampah',   desc: 'Atur kategori dan nilai poin per kg',              icon: Tag,         tone: 'sun'    },
+  { href: '/admin/diy-guides',      label: 'Panduan DIY',       desc: 'Kelola panduan daur ulang untuk komunitas',        icon: BookOpen,    tone: 'mist'   },
+  { href: '/admin/diy-submissions', label: 'Validasi Karya',    desc: 'Tinjau kiriman karya daur ulang pengguna',         icon: Image,       tone: 'sun'    },
+  { href: '/admin/rewards',         label: 'Katalog Reward',    desc: 'Atur hadiah yang bisa ditukar dengan poin',        icon: Gift,        tone: 'mint'   },
+  { href: '/admin/ml-status',       label: 'Pantau API ML',     desc: 'Monitor log dan performa model AI scan sampah',    icon: Activity,    tone: 'forest' },
 ];
 
 // ── Page ──────────────────────────────────────────────────────────────────
@@ -75,28 +76,28 @@ export default function DeveloperDashboardPage() {
       label: 'Bank Sampah Aktif',
       value: stats.users_by_role.waste_bank ?? 0,
       unit: 'mitra',
-      iconClass: 'text-leaf',
+      tone: 'mint' as const,
     },
     {
       icon: CheckCircle,
       label: 'Menunggu Verifikasi',
       value: stats.pending_waste_banks,
       unit: 'pending',
-      iconClass: 'text-sun-ink',
+      tone: 'sun' as const,
     },
     {
       icon: Users,
       label: 'Total Pengguna',
       value: stats.total_users,
       unit: 'akun',
-      iconClass: 'text-forest',
+      tone: 'forest' as const,
     },
     {
       icon: Activity,
       label: 'API ML (24 jam)',
       value: stats.ml_summary_24h.total_calls,
       unit: 'panggilan',
-      iconClass: 'text-muted',
+      tone: 'mist' as const,
       trend: stats.ml_summary_24h.success_rate != null
         ? `${stats.ml_summary_24h.success_rate}% sukses`
         : undefined,
@@ -124,9 +125,44 @@ export default function DeveloperDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        eyebrow="Panel developer"
         title="Ringkasan"
-        description="Panel kendali platform GO GREEN"
+        description="Kawasi seluruh ekosistem GO GREEN dari satu tempat"
       />
+
+      {/* Hero banner — meniru hero user dashboard */}
+      <section className="grid overflow-hidden rounded-2xl bg-mint md:grid-cols-[1.1fr_1fr]">
+        <div className="p-7 sm:p-8">
+          <p className="font-serif italic text-leaf">Dream It. Build It. Change It.</p>
+          <h2 className="mt-3 font-serif text-3xl font-medium leading-tight text-forest">
+            Satu panel untuk menumbuhkan ekosistem hijau
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-ink/75">
+            Verifikasi mitra, kelola katalog reward, dan pantau performa AI scan
+            — semuanya dalam satu tempat.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Link
+              href="/admin/waste-banks?status=pending"
+              className="rounded-full bg-forest px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-forest-deep"
+            >
+              Verifikasi mitra
+            </Link>
+            <Link
+              href="/admin/ml-status"
+              className="rounded-full border border-forest/30 px-5 py-2.5 text-xs font-semibold text-forest transition-colors hover:bg-white/60"
+            >
+              Pantau API ML
+            </Link>
+          </div>
+        </div>
+        {/* Panel dekoratif bernuansa organik — meniru tile landing page */}
+        <div className="relative hidden min-h-56 md:block" aria-hidden="true">
+          <div className="absolute right-10 top-8 size-36 rounded-t-full rounded-b-[24px] bg-white/50" />
+          <div className="absolute bottom-6 right-32 size-24 rounded-[999px_999px_999px_0] bg-forest" />
+          <div className="absolute bottom-16 right-4 size-20 rounded-full border border-forest/20 bg-sun" />
+        </div>
+      </section>
 
       {/* ML warning banner */}
       {mlAlert && (
@@ -152,7 +188,7 @@ export default function DeveloperDashboardPage() {
                 label={s.label}
                 value={s.value}
                 unit={s.unit}
-                iconClass={s.iconClass}
+                tone={s.tone}
                 trend={s.trend}
               />
             ))}
@@ -173,16 +209,15 @@ export default function DeveloperDashboardPage() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="group flex items-center gap-3 rounded-lg border border-line
+                    className="group flex items-center gap-3 rounded-2xl border border-line
                                bg-paper px-4 py-3 transition-colors hover:border-leaf hover:bg-mist"
                   >
-                    <div
-                      className="flex h-8 w-8 shrink-0 items-center justify-center
-                                 rounded-lg bg-mist text-leaf group-hover:bg-mint"
+                    <span
+                      className={`grid size-11 shrink-0 place-items-center rounded-2xl ${TONE_CHIP[item.tone]}`}
                       aria-hidden="true"
                     >
-                      <Icon size={16} strokeWidth={1.75} />
-                    </div>
+                      <Icon size={20} strokeWidth={1.75} />
+                    </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-ink">{item.label}</p>
                       <p className="truncate text-xs text-muted">{item.desc}</p>
@@ -206,7 +241,7 @@ export default function DeveloperDashboardPage() {
             {loading ? (
               <div className="space-y-2">
                 {[1, 2].map((i) => (
-                  <div key={i} className="h-14 animate-pulse rounded-lg bg-line" />
+                  <div key={i} className="h-14 animate-pulse rounded-xl bg-mist" />
                 ))}
               </div>
             ) : (
@@ -217,15 +252,15 @@ export default function DeveloperDashboardPage() {
                     <Link
                       key={item.href}
                       href={item.href}
-                      className="flex items-center justify-between gap-3 rounded-lg border
+                      className="flex items-center justify-between gap-3 rounded-xl border
                                  border-line bg-paper px-3 py-2.5 text-sm hover:bg-mist transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <Icon size={14} className="text-muted" aria-hidden="true" />
+                        <Icon size={14} className="text-leaf" aria-hidden="true" />
                         <span className="font-medium text-ink">{item.label}</span>
                       </div>
                       {item.count > 0 ? (
-                        <span className="rounded-full bg-sun px-2 py-0.5 text-xs font-semibold text-sun-ink">
+                        <span className="rounded-full bg-sun px-2.5 py-1 text-xs font-semibold text-sun-ink">
                           {item.count}
                         </span>
                       ) : (
