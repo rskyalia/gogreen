@@ -1,336 +1,397 @@
-'use client';
+"use client";
 
-/**
- * /design  — halaman preview design system GO GREEN.
- * Hanya untuk development. Tampilkan seluruh palet warna dan semua komponen.
- */
-
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from "react";
 import {
-  Leaf,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  PackagePlus,
+  Calendar,
+  Sparkles,
+  ArrowUpRight,
   Recycle,
-  Users,
-  BarChart3,
-  Plus,
-  Download,
   Trash2,
-  ArrowRight,
-  PackageCheck,
-} from 'lucide-react';
+  ShieldCheck,
+  ChevronRight,
+  Check,
+  X,
+} from "lucide-react";
 
-import {
-  Button,
-  Card,
-  CardHeader,
-  CardDivider,
-  Badge,
-  Input,
-  Select,
-  Textarea,
-  PageHeader,
-  StatCard,
-} from '@/components/ui';
-
-/* ─── Palet token warna ───────────────────────────────────────────────────── */
-
-const COLOR_TOKENS: Array<{ name: string; bg: string; text: string; label: string }> = [
-  { name: 'forest',       bg: 'bg-forest',       text: 'text-white',       label: '--color-forest' },
-  { name: 'forest-deep',  bg: 'bg-forest-deep',  text: 'text-white',       label: '--color-forest-deep' },
-  { name: 'leaf',         bg: 'bg-leaf',         text: 'text-white',       label: '--color-leaf' },
-  { name: 'mint',         bg: 'bg-mint',         text: 'text-forest',      label: '--color-mint' },
-  { name: 'mist',         bg: 'bg-mist',         text: 'text-forest',      label: '--color-mist' },
-  { name: 'paper',        bg: 'bg-paper',        text: 'text-ink',         label: '--color-paper' },
-  { name: 'sun',          bg: 'bg-sun',          text: 'text-sun-ink',     label: '--color-sun' },
-  { name: 'sun-ink',      bg: 'bg-sun-ink',      text: 'text-white',       label: '--color-sun-ink' },
-  { name: 'ink',          bg: 'bg-ink',          text: 'text-white',       label: '--color-ink' },
-  { name: 'muted',        bg: 'bg-muted',        text: 'text-white',       label: '--color-muted' },
-  { name: 'line',         bg: 'bg-line',         text: 'text-ink',         label: '--color-line' },
-  { name: 'danger',       bg: 'bg-danger',       text: 'text-white',       label: '--color-danger' },
-  { name: 'danger-soft',  bg: 'bg-danger-soft',  text: 'text-danger',      label: '--color-danger-soft' },
-];
-
-/* ─── Section wrapper ─────────────────────────────────────────────────────── */
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-4">
-      <h2 className="font-serif text-xl font-semibold text-ink border-b border-line pb-2">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
 }
 
-/* ─── Page ────────────────────────────────────────────────────────────────── */
+declare module "react/jsx-runtime" {
+  export const Fragment: any;
+  export function jsx(type: any, props: any, key?: any): any;
+  export function jsxs(type: any, props: any, key?: any): any;
+}
 
-export default function DesignPage() {
-  const [inputVal, setInputVal]       = useState('');
-  const [selectVal, setSelectVal]     = useState('');
-  const [textareaVal, setTextareaVal] = useState('');
+// Helper sinkronisasi tanggal aman dari SSR & Cascading Render
+const subscribe = () => () => {};
+const getClientSnapshot = () =>
+  new Intl.DateTimeFormat("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+const getServerSnapshot = () => "";
+
+export default function DIYCommunityDashboardPage() {
+  const currentDate = useSyncExternalStore(
+    subscribe,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
+
+  // Mock Data Submission Karya User
+  const [submissions, setSubmissions] = useState([
+    {
+      id: 1,
+      user: "Budi Santoso",
+      guide: "Pot Bunga Botol Plastik",
+      category: "Plastik",
+      status: "pending",
+      points: 50,
+      time: "10 menit lalu",
+    },
+    {
+      id: 2,
+      user: "Siti Aminah",
+      guide: "Tas Belanja dari Sedotan",
+      category: "Plastik",
+      status: "pending",
+      points: 100,
+      time: "25 menit lalu",
+    },
+    {
+      id: 3,
+      user: "Eko Prasetyo",
+      guide: "Tempat Pensil Kaleng",
+      category: "Logam",
+      status: "approved",
+      points: 75,
+      time: "2 jam lalu",
+    },
+    {
+      id: 4,
+      user: "Rina Wijaya",
+      guide: "Prakarya Kardus Bekas",
+      category: "Kertas",
+      status: "rejected",
+      points: 0,
+      time: "Kemarin",
+    },
+  ]);
+
+  // Algoritma Hitung Status Karya
+  const pendingCount = submissions.filter((s) => s.status === "pending").length;
+  const approvedCount = submissions.filter(
+    (s) => s.status === "approved",
+  ).length;
+  const rejectedCount = submissions.filter(
+    (s) => s.status === "rejected",
+  ).length;
+
+  const handleAction = (id: number, newStatus: "approved" | "rejected") => {
+    setSubmissions((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s)),
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-paper">
-      <div className="max-w-4xl mx-auto px-6 py-12 space-y-14">
+    <div className="space-y-8 font-sans text-[#1d3b2f]">
+      {/* Header Salam & Tanggal Dinamis */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <span className="text-[11px] font-bold text-[#1f8a5b] tracking-widest uppercase flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5" /> DASHBOARD KOMUNITAS DIY
+          </span>
+          <h1 className="text-3xl font-serif font-bold text-[#1d3b2f] mt-0.5">
+            Halo, Tim Komunitas! 🌿
+          </h1>
+          <p className="text-xs text-[#6b8279] mt-1">
+            Kelola katalog kreasi, atur skema poin, dan lakukan kurasi karya
+            daur ulang warga.
+          </p>
+        </div>
 
-        {/* ── Header ── */}
-        <PageHeader
-          title="Design System GO GREEN"
-          description="Preview komponen dan token warna. Halaman ini hanya tersedia di development."
-          action={
-            <Badge variant="pending">Development only</Badge>
-          }
-        />
+        {/* Indikator Tanggal Real-time */}
+        <div className="inline-flex items-center gap-2 bg-white px-3.5 py-2 rounded-xl border border-[#d7e6dd] text-xs font-medium text-[#1d3b2f] shadow-2xs self-start md:self-auto">
+          <Calendar className="w-4 h-4 text-[#1f8a5b]" />
+          <span className="capitalize">
+            {currentDate || "Memuat tanggal..."}
+          </span>
+        </div>
+      </div>
 
-        {/* ══════════════════════════════════════════════════════════════════
-            1. PALET WARNA
-        ══════════════════════════════════════════════════════════════════ */}
-        <Section title="Palet Warna">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {COLOR_TOKENS.map(({ name, bg, text, label }) => (
-              <div key={name} className="overflow-hidden rounded-xl border border-line">
-                <div className={`h-16 ${bg}`} />
-                <div className="px-3 py-2 bg-white">
-                  <p className="text-xs font-semibold text-ink">{name}</p>
-                  <p className="text-xs text-muted font-mono">{label}</p>
-                </div>
-              </div>
-            ))}
+      {/* Banner Ringkasan Tugas */}
+      <div className="bg-[#cfeedd] rounded-3xl p-6 border border-[#d7e6dd] flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="space-y-2.5 max-w-xl">
+          <span className="text-[10px] font-bold tracking-widest text-[#0b4d36] uppercase flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5" /> PUSAT KURASI & EDUKASI DAUR
+            ULANG
+          </span>
+          <h2 className="text-2xl font-serif font-extrabold text-[#1d3b2f]">
+            Ada {pendingCount} karya warga yang butuh validasimu hari ini!
+          </h2>
+          <p className="text-xs text-[#1d3b2f]/80 leading-relaxed">
+            Pastikan setiap bukti karya yang diunggah sesuai dengan panduan agar
+            poin terdistribusi secara tepat.
+          </p>
+        </div>
+
+        <a
+          href="/community/submissions"
+          className="bg-[#0b4d36] hover:bg-[#0a3f2d] text-white text-xs font-bold px-5 py-3 rounded-xl flex items-center gap-2 transition-all shadow-md shadow-[#0b4d36]/10 shrink-0"
+        >
+          <span>Mulai Kurasi Karya</span>
+          <ChevronRight className="w-4 h-4" />
+        </a>
+      </div>
+
+      {/* Grid Stat Status Algoritma (Accepted, Pending, Rejected, Request Bahan) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="bg-white p-5 rounded-2xl border border-[#d7e6dd] flex items-center justify-between shadow-2xs">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#6b8279]">
+              Menunggu Validasi
+            </p>
+            <h3 className="text-2xl font-bold text-[#8a5a00] mt-1">
+              {pendingCount} Karya
+            </h3>
+            <p className="text-[10px] text-[#8a5a00] mt-1 font-semibold flex items-center gap-1">
+              <Clock className="w-3 h-3" /> Status: Pending
+            </p>
           </div>
-        </Section>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            2. TIPOGRAFI
-        ══════════════════════════════════════════════════════════════════ */}
-        <Section title="Tipografi">
-          <Card>
-            <p className="font-serif text-4xl font-semibold text-ink leading-tight mb-1">
-              Judul Serif — Newsreader
-            </p>
-            <p className="font-serif text-2xl text-muted mb-4">
-              Subheading serif lebih ringan
-            </p>
-            <CardDivider className="my-4" />
-            <p className="font-sans text-base text-ink mb-1">
-              Body sans-serif — Plus Jakarta Sans
-            </p>
-            <p className="font-sans text-sm text-muted mb-1">
-              Teks kecil / label — text-sm text-muted
-            </p>
-            <p className="font-mono text-sm text-muted">
-              Monospace — font-mono (kode / ID)
-            </p>
-          </Card>
-        </Section>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            3. BUTTON
-        ══════════════════════════════════════════════════════════════════ */}
-        <Section title="Button">
-
-          {/* Varian */}
-          <Card>
-            <CardHeader title="Varian" />
-            <div className="flex flex-wrap gap-3">
-              <Button variant="primary">Primary</Button>
-              <Button variant="secondary">Secondary</Button>
-              <Button variant="ghost">Ghost</Button>
-              <Button variant="danger">Danger</Button>
-            </div>
-          </Card>
-
-          {/* Ukuran */}
-          <Card>
-            <CardHeader title="Ukuran" />
-            <div className="flex flex-wrap items-center gap-3">
-              <Button size="sm">Small</Button>
-              <Button size="md">Medium</Button>
-            </div>
-          </Card>
-
-          {/* Dengan ikon */}
-          <Card>
-            <CardHeader title="Dengan Ikon" />
-            <div className="flex flex-wrap gap-3">
-              <Button variant="primary"  icon={Plus}     >Tambah</Button>
-              <Button variant="secondary" icon={Download} >Unduh</Button>
-              <Button variant="ghost"    icon={ArrowRight}>Lanjut</Button>
-              <Button variant="danger"   icon={Trash2}   >Hapus</Button>
-            </div>
-          </Card>
-
-          {/* State */}
-          <Card>
-            <CardHeader title="State" />
-            <div className="flex flex-wrap gap-3">
-              <Button loading>Memuat...</Button>
-              <Button disabled>Disabled</Button>
-              <Button variant="secondary" loading size="sm">Simpan</Button>
-            </div>
-          </Card>
-        </Section>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            4. BADGE
-        ══════════════════════════════════════════════════════════════════ */}
-        <Section title="Badge">
-          <Card>
-            <div className="flex flex-wrap gap-3">
-              <Badge variant="success">Terverifikasi</Badge>
-              <Badge variant="pending">Menunggu</Badge>
-              <Badge variant="danger">Ditolak</Badge>
-              <Badge variant="neutral">Tidak aktif</Badge>
-            </div>
-          </Card>
-        </Section>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            5. FORM FIELDS
-        ══════════════════════════════════════════════════════════════════ */}
-        <Section title="Form Fields">
-          <Card>
-            <CardHeader title="Input" />
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Input
-                label="Nama lengkap"
-                placeholder="Masukkan nama"
-                value={inputVal}
-                onChange={(e) => setInputVal(e.target.value)}
-                hint="Sesuai KTP"
-                required
-              />
-              <Input
-                label="Email"
-                type="email"
-                placeholder="email@domain.com"
-                defaultValue="salah@"
-                error="Format email tidak valid."
-              />
-              <Input
-                label="Disabled"
-                placeholder="Tidak bisa diubah"
-                disabled
-                defaultValue="Nilai tetap"
-              />
-            </div>
-          </Card>
-
-          <Card>
-            <CardHeader title="Select" />
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Select
-                label="Kategori sampah"
-                value={selectVal}
-                onChange={(e) => setSelectVal(e.target.value)}
-                hint="Pilih satu kategori"
-                required
-              >
-                <option value="">-- Pilih --</option>
-                <option value="plastik">Plastik PET</option>
-                <option value="kardus">Kardus</option>
-                <option value="kaleng">Kaleng</option>
-              </Select>
-              <Select
-                label="Status"
-                error="Wajib dipilih."
-              >
-                <option value="">-- Pilih --</option>
-              </Select>
-            </div>
-          </Card>
-
-          <Card>
-            <CardHeader title="Textarea" />
-            <Textarea
-              label="Catatan"
-              placeholder="Tulis catatan tambahan di sini..."
-              value={textareaVal}
-              onChange={(e) => setTextareaVal(e.target.value)}
-              hint="Maksimal 500 karakter."
-              rows={4}
-            />
-          </Card>
-        </Section>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            6. CARD
-        ══════════════════════════════════════════════════════════════════ */}
-        <Section title="Card">
-          <Card>
-            <CardHeader
-              title="Judul kartu"
-              description="Deskripsi singkat di bawah judul."
-              action={<Button size="sm" variant="secondary">Aksi</Button>}
-            />
-            <p className="text-sm text-muted">
-              Konten kartu menggunakan token warna dan ukuran yang konsisten.
-            </p>
-            <CardDivider className="my-4" />
-            <p className="text-sm text-muted">
-              Bagian bawah setelah divider.
-            </p>
-          </Card>
-        </Section>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            7. STAT CARD
-        ══════════════════════════════════════════════════════════════════ */}
-        <Section title="StatCard">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <StatCard
-              icon={Recycle}
-              label="Setoran hari ini"
-              value={24}
-              unit="setoran"
-              trend="+3 dari kemarin"
-            />
-            <StatCard
-              icon={BarChart3}
-              label="Total berat"
-              value={312}
-              unit="kg"
-              iconClass="text-forest"
-            />
-            <StatCard
-              icon={Users}
-              label="Penyetor unik"
-              value={18}
-              unit="orang"
-              iconClass="text-sun-ink"
-            />
-            <StatCard
-              icon={PackageCheck}
-              label="Poin diberikan"
-              value={15600}
-              unit="poin"
-              iconClass="text-danger"
-            />
+          <div className="p-3 bg-[#fdecc4] rounded-xl text-[#8a5a00]">
+            <Clock className="w-6 h-6" />
           </div>
-        </Section>
+        </div>
 
-        {/* ══════════════════════════════════════════════════════════════════
-            8. PAGE HEADER
-        ══════════════════════════════════════════════════════════════════ */}
-        <Section title="PageHeader">
-          <Card>
-            <PageHeader
-              title="Judul Halaman"
-              description="Deskripsi singkat tentang isi halaman ini."
-              action={
-                <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" icon={Download}>Ekspor</Button>
-                  <Button size="sm" icon={Plus}>Tambah</Button>
-                </div>
-              }
-            />
-          </Card>
-        </Section>
+        <div className="bg-white p-5 rounded-2xl border border-[#d7e6dd] flex items-center justify-between shadow-2xs">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#6b8279]">
+              Karya Disetujui
+            </p>
+            <h3 className="text-2xl font-bold text-[#0b4d36] mt-1">
+              {approvedCount} Karya
+            </h3>
+            <p className="text-[10px] text-[#1f8a5b] mt-1 font-semibold flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" /> Status: Accepted
+            </p>
+          </div>
+          <div className="p-3 bg-[#cfeedd] rounded-xl text-[#0b4d36]">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+        </div>
 
-        {/* ── Footer label ── */}
-        <p className="text-center text-xs text-muted pb-4">
-          GO GREEN Design System — hanya tersedia di development
-        </p>
+        <div className="bg-white p-5 rounded-2xl border border-[#d7e6dd] flex items-center justify-between shadow-2xs">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#6b8279]">
+              Karya Ditolak
+            </p>
+            <h3 className="text-2xl font-bold text-red-600 mt-1">
+              {rejectedCount} Karya
+            </h3>
+            <p className="text-[10px] text-red-600 mt-1 font-semibold flex items-center gap-1">
+              <XCircle className="w-3 h-3" /> Status: Rejected
+            </p>
+          </div>
+          <div className="p-3 bg-red-50 rounded-xl text-red-600">
+            <XCircle className="w-6 h-6" />
+          </div>
+        </div>
 
+        <div className="bg-white p-5 rounded-2xl border border-[#d7e6dd] flex items-center justify-between shadow-2xs">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#6b8279]">
+              Request Bahan
+            </p>
+            <h3 className="text-2xl font-bold text-[#0b4d36] mt-1">
+              3 Permintaan
+            </h3>
+            <p className="text-[10px] text-[#1f8a5b] mt-1 font-semibold flex items-center gap-1">
+              <PackagePlus className="w-3 h-3" /> Bahan Daur Ulang
+            </p>
+          </div>
+          <div className="p-3 bg-[#e1f3e9] rounded-xl text-[#0b4d36]">
+            <PackagePlus className="w-6 h-6" />
+          </div>
+        </div>
+      </div>
+
+      {/* Skema Poin & Kategori */}
+      <div className="bg-white p-6 rounded-2xl border border-[#d7e6dd] space-y-4 shadow-2xs">
+        <div className="flex items-center justify-between border-b border-[#d7e6dd] pb-4">
+          <div>
+            <h3 className="text-lg font-serif font-bold text-[#1d3b2f]">
+              Skema Standar Poin Daur Ulang Komunitas
+            </h3>
+            <p className="text-xs text-[#6b8279]">
+              Penentuan alokasi poin yang akan diterima pengguna berdasarkan
+              tindakan daur ulang.
+            </p>
+          </div>
+          <span className="text-[11px] bg-[#cfeedd] text-[#0b4d36] font-bold px-3 py-1 rounded-full border border-[#d7e6dd]">
+            Poin Otomatis Aktif
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl border border-[#d7e6dd] bg-[#f5faf7] space-y-2">
+            <div className="flex items-center gap-2 text-[#0b4d36] font-bold text-xs">
+              <Sparkles className="w-4 h-4 text-[#1f8a5b]" />
+              <span>Dibuat Karya DIY (Accepted)</span>
+            </div>
+            <p className="text-[11px] text-[#6b8279]">
+              User mengunggah bukti kreasi karya daur ulang yang valid sesuai
+              tutorial.
+            </p>
+            <div className="pt-2 text-lg font-serif font-extrabold text-[#0b4d36]">
+              +50 s/d +150{" "}
+              <span className="text-xs font-sans font-normal text-[#6b8279]">
+                Poin / Karya
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl border border-[#d7e6dd] bg-[#f5faf7] space-y-2">
+            <div className="flex items-center gap-2 text-[#0b4d36] font-bold text-xs">
+              <Recycle className="w-4 h-4 text-[#1f8a5b]" />
+              <span>Pemilahan Sampah (Tanpa Karya)</span>
+            </div>
+            <p className="text-[11px] text-[#6b8279]">
+              Sampah dipilah berdasarkan kategori dan disetor tanpa dibuat karya
+              kreasi.
+            </p>
+            <div className="pt-2 text-lg font-serif font-extrabold text-[#1f8a5b]">
+              +10 s/d +20{" "}
+              <span className="text-xs font-sans font-normal text-[#6b8279]">
+                Poin / Kg
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl border border-[#d7e6dd] bg-[#f5faf7] space-y-2">
+            <div className="flex items-center gap-2 text-[#6b8279] font-bold text-xs">
+              <Trash2 className="w-4 h-4 text-red-500" />
+              <span>Dibuang / Tidak Valid (Rejected)</span>
+            </div>
+            <p className="text-[11px] text-[#6b8279]">
+              Foto buram, karya tidak sesuai tutorial, atau sampah dibuang
+              sembarangan.
+            </p>
+            <div className="pt-2 text-lg font-serif font-extrabold text-[#6b8279]">
+              0{" "}
+              <span className="text-xs font-sans font-normal text-[#6b8279]">
+                Poin
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabel Kurasi Cepat */}
+      <div className="bg-white rounded-2xl border border-[#d7e6dd] overflow-hidden shadow-2xs">
+        <div className="p-5 border-b border-[#d7e6dd] flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-serif font-bold text-[#1d3b2f]">
+              Kurasi Karya Terbaru
+            </h3>
+            <p className="text-xs text-[#6b8279]">
+              Setujui atau tolak pengajuan karya warga secara langsung.
+            </p>
+          </div>
+          <a
+            href="/community/submissions"
+            className="text-xs font-bold text-[#1f8a5b] hover:underline flex items-center gap-1"
+          >
+            Lihat Semua Submissions <ArrowUpRight className="w-4 h-4" />
+          </a>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-[#1d3b2f]">
+            <thead className="bg-[#f5faf7] text-[#6b8279] font-bold uppercase tracking-wider border-b border-[#d7e6dd]">
+              <tr>
+                <th className="px-6 py-3.5">Nama User</th>
+                <th className="px-6 py-3.5">Panduan DIY</th>
+                <th className="px-6 py-3.5">Kategori</th>
+                <th className="px-6 py-3.5">Est. Poin</th>
+                <th className="px-6 py-3.5">Status</th>
+                <th className="px-6 py-3.5 text-right">Aksi Kurasi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#d7e6dd]">
+              {submissions.map((item) => (
+                <tr
+                  key={item.id}
+                  className="hover:bg-[#f5faf7]/60 transition-all"
+                >
+                  <td className="px-6 py-4 font-bold text-[#1d3b2f]">
+                    {item.user}
+                  </td>
+                  <td className="px-6 py-4 font-medium">{item.guide}</td>
+                  <td className="px-6 py-4">
+                    <span className="bg-[#e1f3e9] text-[#0b4d36] font-semibold text-[10px] px-2.5 py-1 rounded-md">
+                      {item.category}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 font-bold text-[#1f8a5b]">
+                    +{item.points} Pts
+                  </td>
+                  <td className="px-6 py-4">
+                    {item.status === "pending" && (
+                      <span className="bg-[#fdecc4] text-[#8a5a00] font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Pending
+                      </span>
+                    )}
+                    {item.status === "approved" && (
+                      <span className="bg-[#cfeedd] text-[#0b4d36] font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Accepted
+                      </span>
+                    )}
+                    {item.status === "rejected" && (
+                      <span className="bg-red-100 text-red-700 font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
+                        <XCircle className="w-3 h-3" /> Rejected
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    {item.status === "pending" ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAction(item.id, "approved")}
+                          className="bg-[#0b4d36] hover:bg-[#0a3f2d] text-white px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAction(item.id, "rejected")}
+                          className="bg-red-50 hover:bg-red-100 text-red-600 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border border-red-200 cursor-pointer transition-all"
+                        >
+                          <X className="w-3.5 h-3.5" /> Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-[#6b8279] italic">
+                        Selesai dikurasi
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
