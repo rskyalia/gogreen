@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { api } from '@/lib/api';
 import { 
   PackagePlus, 
   Search, 
@@ -13,10 +14,15 @@ import {
   Trash2, 
   X, 
   Recycle, 
-  Layers, 
-  Sparkles, 
-  Tag 
+  Layers,
+  Loader2
 } from 'lucide-react';
+
+interface BankSampah {
+  id: number;
+  name: string;
+  address?: string;
+}
 
 interface MaterialRequest {
   id: number;
@@ -24,6 +30,7 @@ interface MaterialRequest {
   category: string;
   quantity: string;
   requester: string;
+  targetBankSampah: string;
   location: string;
   urgency: 'Tinggi' | 'Sedang' | 'Rendah';
   status: 'Open' | 'In Progress' | 'Fulfilled';
@@ -37,19 +44,85 @@ export default function MaterialRequestsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Mock Data Permintaan Bahan Daur Ulang
+  // State Bank Sampah
+  const [bankSampahList, setBankSampahList] = useState<BankSampah[]>([]);
+  const [isLoadingBankSampah, setIsLoadingBankSampah] = useState(false);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    title: '',
+    category: 'Plastik',
+    quantity: '',
+    requester: 'Komunitas DIY',
+    targetBankSampah: '',
+    location: '',
+    urgency: 'Sedang' as 'Tinggi' | 'Sedang' | 'Rendah',
+    description: ''
+  });
+
+  // 🔄 FUNGSI FETCH BANK SAMPAH DARI BACKEND DATABASE
+  const fetchWasteBanks = useCallback(async () => {
+    setIsLoadingBankSampah(true);
+    try {
+      const res = await api.get<{ data: BankSampah[] }>('/waste-banks');
+      const list = Array.isArray(res) ? res : res?.data;
+
+      if (Array.isArray(list) && list.length > 0) {
+        setBankSampahList(list);
+        setFormData(prev => ({ 
+          ...prev, 
+          targetBankSampah: prev.targetBankSampah || list[0].name 
+        }));
+      } else {
+        useFallbackData();
+      }
+    } catch (error) {
+      console.warn('API Error, menggunakan data fallback:', error);
+      useFallbackData();
+    } finally {
+      setIsLoadingBankSampah(false);
+    }
+  }, []);
+
+  // Data Fallback (jika backend mati)
+  function useFallbackData() {
+    const fallback: BankSampah[] = [
+      { id: 1, name: 'Bank Sampah Jaya', address: 'Jl. Raya Bogor No. 45, Ciracas, Jakarta Timur' },
+      { id: 2, name: 'Bank Sampah Makmur', address: 'Jl. Margonda Raya No. 12, Depok, Jawa Barat' }
+    ];
+    setBankSampahList(fallback);
+    setFormData(prev => ({ 
+      ...prev, 
+      targetBankSampah: prev.targetBankSampah || fallback[0].name 
+    }));
+  }
+
+  // 1️⃣ Fetch saat pertama kali halaman dimuat
+  useEffect(() => {
+    fetchWasteBanks();
+  }, [fetchWasteBanks]);
+
+  // 2️⃣ RE-FETCH OTOMATIS SAAT MODAL DIBUKA (Agar data bank sampah yang baru di-input di DB langsung muncul)
+  useEffect(() => {
+    if (isModalOpen) {
+      fetchWasteBanks();
+    }
+  }, [isModalOpen, fetchWasteBanks]);
+
+  // Mock Data Permintaan Bahan
   const [requests, setRequests] = useState<MaterialRequest[]>([
     {
       id: 1,
       title: 'Dibutuhkan 50 Botol Plastik Bekas 1.5L',
       category: 'Plastik',
       quantity: '50 Botol',
-      requester: 'Bank Sampah Melati',
-      location: 'Kecamatan Sukamaju',
+      requester: 'Bank Sampah Jaya',
+      targetBankSampah: 'Bank Sampah Jaya',
+      location: 'Kecamatan Ciracas, Jakarta Timur',
       urgency: 'Tinggi',
       status: 'Open',
       createdAt: '12 Okt 2026',
-      description: 'Dibutuhkan untuk kegiatan workshop pembuatan pot tanaman hias warga RW 04.'
+      description: 'Dibutuhkan untuk kegiatan workshop pembuatan pot tanaman hias warga.'
     },
     {
       id: 2,
@@ -57,64 +130,25 @@ export default function MaterialRequestsPage() {
       category: 'Kertas & Kardus',
       quantity: '10 Kg',
       requester: 'Sanggar Kreasi Warga',
-      location: 'Kelurahan Pandanwangi',
+      targetBankSampah: 'Bank Sampah Makmur',
+      location: 'Kecamatan Beji, Depok',
       urgency: 'Sedang',
       status: 'In Progress',
       createdAt: '11 Okt 2026',
       description: 'Bahan dasar pembuatan maket dan kotak penyimpanan serbaguna anak-anak sekolah.'
-    },
-    {
-      id: 3,
-      title: 'Kain Perca & Baju Bekas Tidak Terpakai',
-      category: 'Kain',
-      quantity: '15 Kg',
-      requester: 'Komunitas Ibu Kreatif',
-      location: 'Kecamatan Lowokwaru',
-      urgency: 'Rendah',
-      status: 'Fulfilled',
-      createdAt: '09 Okt 2026',
-      description: 'Bahan pembuatan keset kaki dan totebag kain ramah lingkungan.'
-    },
-    {
-      id: 4,
-      title: 'Kaleng Minuman Bekas Aluminium',
-      category: 'Logam',
-      quantity: '100 Kaleng',
-      requester: 'Bank Sampah Bersih Bersama',
-      location: 'Kecamatan Blimbing',
-      urgency: 'Tinggi',
-      status: 'Open',
-      createdAt: '08 Okt 2026',
-      description: 'Diperlukan untuk kerajinan tempat pensil meja dan dekorasi unik.'
     }
   ]);
 
-  // Form State untuk Buat Request Baru
-  const [formData, setFormData] = useState({
-    title: '',
-    category: 'Plastik',
-    quantity: '',
-    requester: 'Komunitas DIY',
-    location: '',
-    urgency: 'Sedang' as 'Tinggi' | 'Sedang' | 'Rendah',
-    description: ''
-  });
-
-  // Handler Ubah Status Request
   const handleStatusChange = (id: number, newStatus: 'Open' | 'In Progress' | 'Fulfilled') => {
-    setRequests(prev =>
-      prev.map(r => (r.id === id ? { ...r, status: newStatus } : r))
-    );
+    setRequests(prev => prev.map(r => (r.id === id ? { ...r, status: newStatus } : r)));
   };
 
-  // Handler Hapus Request
   const handleDelete = (id: number) => {
     if (confirm('Apakah kamu yakin ingin menghapus permintaan bahan ini?')) {
       setRequests(prev => prev.filter(r => r.id !== id));
     }
   };
 
-  // Handler Submit Request Baru
   const handleCreateRequest = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.quantity) return;
@@ -125,7 +159,8 @@ export default function MaterialRequestsPage() {
       category: formData.category,
       quantity: formData.quantity,
       requester: formData.requester || 'Komunitas DIY',
-      location: formData.location || 'Kota Malang',
+      targetBankSampah: formData.targetBankSampah || (bankSampahList[0]?.name ?? 'Bank Sampah Jaya'),
+      location: formData.location || 'DKI Jakarta',
       urgency: formData.urgency,
       status: 'Open',
       createdAt: 'Hari ini',
@@ -139,19 +174,20 @@ export default function MaterialRequestsPage() {
       category: 'Plastik',
       quantity: '',
       requester: 'Komunitas DIY',
+      targetBankSampah: bankSampahList[0]?.name || '',
       location: '',
       urgency: 'Sedang',
       description: ''
     });
   };
 
-  // Filter List Request
   const filteredRequests = requests.filter(r => {
     const matchesCategory = selectedCategory === 'Semua' || r.category === selectedCategory;
     const matchesStatus = selectedStatus === 'all' || r.status === selectedStatus;
     const matchesQuery =
       r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.requester.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.targetBankSampah.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.location.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesStatus && matchesQuery;
   });
@@ -185,7 +221,6 @@ export default function MaterialRequestsPage() {
 
       {/* Bar Filter Status & Kategori */}
       <div className="bg-white p-4 rounded-2xl border border-[#d7e6dd] flex flex-col md:flex-row justify-between items-center gap-4 shadow-2xs">
-        {/* Status Filter Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
           <button
             onClick={() => setSelectedStatus('all')}
@@ -213,7 +248,7 @@ export default function MaterialRequestsPage() {
             onClick={() => setSelectedStatus('In Progress')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
               selectedStatus === 'In Progress'
-                ? 'bg-[#1f8a5b] text-white shadow-xs'
+                ? 'bg-[#1f8a5b] text-[#0b4d36] shadow-xs'
                 : 'bg-[#e1f3e9] text-[#0b4d36] hover:bg-[#cfeedd]'
             }`}
           >
@@ -232,12 +267,11 @@ export default function MaterialRequestsPage() {
           </button>
         </div>
 
-        {/* Input Pencarian */}
         <div className="relative w-full md:w-72">
           <Search className="w-4 h-4 absolute left-3.5 top-3 text-[#6b8279]" />
           <input
             type="text"
-            placeholder="Cari bahan / pemohon / lokasi..."
+            placeholder="Cari bahan / pemohon / lokasi / bank sampah..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full bg-[#f5faf7] border border-[#d7e6dd] rounded-xl pl-10 pr-4 py-2 text-xs text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-[#1f8a5b]"
@@ -274,7 +308,6 @@ export default function MaterialRequestsPage() {
               className="bg-white rounded-2xl border border-[#d7e6dd] p-5 flex flex-col justify-between space-y-4 shadow-2xs hover:shadow-md transition-all"
             >
               <div className="space-y-3">
-                {/* Header Card: Badges Status & Urgensi */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
                     <span className="bg-[#e1f3e9] text-[#0b4d36] font-bold text-[10px] px-2.5 py-1 rounded-md border border-[#d7e6dd]">
@@ -310,7 +343,6 @@ export default function MaterialRequestsPage() {
                   )}
                 </div>
 
-                {/* Judul Request & Jumlah */}
                 <div>
                   <h3 className="font-serif font-bold text-base text-[#1d3b2f] leading-snug">
                     {item.title}
@@ -320,16 +352,14 @@ export default function MaterialRequestsPage() {
                   </div>
                 </div>
 
-                {/* Deskripsi */}
                 <p className="text-xs text-[#6b8279] leading-relaxed line-clamp-2">
                   {item.description}
                 </p>
 
-                {/* Info Pemohon & Lokasi */}
                 <div className="pt-2 border-t border-[#f5faf7] grid grid-cols-2 gap-2 text-[11px] text-[#6b8279]">
                   <div className="flex items-center gap-1.5 truncate">
                     <Building2 className="w-3.5 h-3.5 text-[#1f8a5b] shrink-0" />
-                    <span className="truncate font-semibold text-[#1d3b2f]">{item.requester}</span>
+                    <span className="truncate font-semibold text-[#1d3b2f]">{item.targetBankSampah}</span>
                   </div>
                   <div className="flex items-center gap-1.5 truncate">
                     <MapPin className="w-3.5 h-3.5 text-[#1f8a5b] shrink-0" />
@@ -338,7 +368,6 @@ export default function MaterialRequestsPage() {
                 </div>
               </div>
 
-              {/* Action Bar Ubah Status & Hapus */}
               <div className="pt-3 border-t border-[#d7e6dd] flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] text-[#6b8279] font-medium">Ubah Status:</span>
@@ -365,7 +394,6 @@ export default function MaterialRequestsPage() {
           ))}
         </div>
       ) : (
-        /* Empty State */
         <div className="bg-white rounded-2xl border border-[#d7e6dd] p-12 text-center space-y-3 shadow-2xs">
           <div className="w-12 h-12 bg-[#e1f3e9] text-[#0b4d36] rounded-full flex items-center justify-center mx-auto">
             <PackagePlus className="w-6 h-6" />
@@ -374,7 +402,7 @@ export default function MaterialRequestsPage() {
             Tidak Ada Request Bahan yang Sesuai
           </h3>
           <p className="text-xs text-[#6b8279] max-w-md mx-auto">
-            Belum ada permintaan bahan daur ulang untuk filter kategori ini. Kamu bisa membuat request bahan baru.
+            Belum ada permintaan bahan daur ulang untuk filter kategori ini.
           </p>
           <button
             onClick={() => setIsModalOpen(true)}
@@ -386,7 +414,7 @@ export default function MaterialRequestsPage() {
         </div>
       )}
 
-      {/* Modal Popup: Form Tambah Request Bahan Baru */}
+      {/* Modal Form Tambah Request */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl border border-[#d7e6dd] max-w-lg w-full p-6 space-y-5 shadow-2xl my-8">
@@ -454,7 +482,7 @@ export default function MaterialRequestsPage() {
                   <label className="block font-bold text-[#1d3b2f] mb-1">Nama Pemohon / Organisasi</label>
                   <input
                     type="text"
-                    placeholder="Contoh: Bank Sampah Melati"
+                    placeholder="Contoh: Komunitas DIY"
                     value={formData.requester}
                     onChange={e => setFormData({ ...formData, requester: e.target.value })}
                     className="w-full bg-[#f5faf7] border border-[#d7e6dd] rounded-xl px-3.5 py-2.5 text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-[#1f8a5b]"
@@ -479,11 +507,34 @@ export default function MaterialRequestsPage() {
                 <label className="block font-bold text-[#1d3b2f] mb-1">Lokasi Pengambilan / Kecamatan</label>
                 <input
                   type="text"
-                  placeholder="Contoh: Kecamatan Sukamaju, Kota Malang"
+                  placeholder="Contoh: Kecamatan Ciracas, Jakarta Timur"
                   value={formData.location}
                   onChange={e => setFormData({ ...formData, location: e.target.value })}
                   className="w-full bg-[#f5faf7] border border-[#d7e6dd] rounded-xl px-3.5 py-2.5 text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-[#1f8a5b]"
                 />
+              </div>
+
+              {/* Dropdown Bank Sampah yang selalu terbarui otomatis saat modal dibuka */}
+              <div>
+                <label className="block font-bold text-[#1d3b2f] mb-1">Pilih Bank Sampah Tujuan</label>
+                {isLoadingBankSampah ? (
+                  <div className="flex items-center gap-2 py-2.5 px-3.5 bg-[#f5faf7] border border-[#d7e6dd] rounded-xl text-[#6b8279]">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#1f8a5b]" />
+                    <span>Memuat daftar bank sampah...</span>
+                  </div>
+                ) : (
+                  <select
+                    value={formData.targetBankSampah}
+                    onChange={e => setFormData({ ...formData, targetBankSampah: e.target.value })}
+                    className="w-full bg-[#f5faf7] border border-[#d7e6dd] rounded-xl px-3.5 py-2.5 text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-[#1f8a5b]"
+                  >
+                    {bankSampahList.map(bank => (
+                      <option key={bank.id} value={bank.name}>
+                        {bank.name} {bank.address ? `(${bank.address})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div>

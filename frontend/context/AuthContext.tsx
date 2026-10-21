@@ -14,7 +14,6 @@ import {
 } from 'react';
 import {
   type AuthUser,
-  type Role,
   fetchMe,
   getDashboardPath,
   loadUser,
@@ -57,6 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = getToken();
     if (!token) {
+      setUser(null);
+      removeUser();
       setIsLoading(false);
       return;
     }
@@ -94,11 +95,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [router],
   );
 
+  // 🔴 PERBAIKAN PADA FUNGSI LOGOUT
   const logout = useCallback(async () => {
-    await logoutUser();
-    setUser(null);
-    router.push('/login');
-  }, [router]);
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.warn('Gagal memanggil API logout di server:', error);
+    } finally {
+      // 1. Reset State User
+      setUser(null);
+
+      // 2. Hapus Cache & Token di Penyimpanan Lokal
+      removeUser();
+      removeToken();
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // 3. Hapus Cookie jika digunakan
+      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+
+      // 4. Force hard reload ke Beranda / Landing Page Utama ('/')
+      window.location.href = '/';
+    }
+  }, []);
 
   const refreshUser = useCallback(async () => {
     const fresh = await fetchMe();

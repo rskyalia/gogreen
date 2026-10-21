@@ -67,7 +67,7 @@ export default function DIYGuidesPage() {
       duration: '20 menit',
       inspiredCount: 128,
       status: 'Published',
-      image: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&q=80&w=400',
+      image: '/assets/community/panduan-diy/pot.jpg',
       materials: [
         '1 Botol plastik bekas ukuran 1.5 Liter',
         'Gunting / Cutter tajam',
@@ -92,7 +92,7 @@ export default function DIYGuidesPage() {
       duration: '25 menit',
       inspiredCount: 84,
       status: 'Published',
-      image: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&q=80&w=400',
+      image: '/assets/community/panduan-diy/storagekardus.jpg',
       materials: [
         '1 Kardus bekas sepatu atau kardus mi instan',
         'Kertas kado bekas / Kertas koran',
@@ -115,7 +115,7 @@ export default function DIYGuidesPage() {
       duration: '45 menit',
       inspiredCount: 62,
       status: 'Published',
-      image: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=400',
+      image: '/assets/community/panduan-diy/totebag.jpg',
       materials: [
         '1 Kaos bekas berbahan tebal',
         'Gunting kain khusus',
@@ -138,7 +138,7 @@ export default function DIYGuidesPage() {
       duration: '30 menit',
       inspiredCount: 96,
       status: 'Published',
-      image: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=400',
+      image: '/assets/community/panduan-diy/tempatpensil.jpg',
       materials: [
         '1 Kaleng bekas minuman aluminium',
         'Pembuka kaleng & Amplas halus',
@@ -161,7 +161,7 @@ export default function DIYGuidesPage() {
       duration: '15 menit',
       inspiredCount: 214,
       status: 'Published',
-      image: 'https://images.unsplash.com/photo-1584473457406-6df3a6372104?auto=format&fit=crop&q=80&w=400',
+      image: '/assets/community/panduan-diy/pupukorganik.jpg',
       materials: [
         'Sampah organik dapur (kulit buah, sisa sayur)',
         'Dedaunan kering / Serbuk gergaji',
@@ -183,6 +183,7 @@ export default function DIYGuidesPage() {
     difficulty: 'Easy',
     points: 50,
     duration: '20 menit',
+    imagePath: '',
     materialsText: '',
     stepsText: '',
   });
@@ -232,6 +233,10 @@ export default function DIYGuidesPage() {
           { title: 'Langkah 3: Finishing', description: 'Rapikan karya dan periksa ketahanannya.' }
         ];
 
+    const finalImage = formData.imagePath.trim() !== '' 
+      ? formData.imagePath.trim() 
+      : 'https://images.unsplash.com/photo-1528323273322-d81458248d40?auto=format&fit=crop&q=80&w=400';
+
     const newGuide: Guide = {
       id: Date.now(),
       title: formData.title,
@@ -241,7 +246,7 @@ export default function DIYGuidesPage() {
       duration: formData.duration,
       inspiredCount: 0,
       status: 'Published',
-      image: 'https://images.unsplash.com/photo-1528323273322-d81458248d40?auto=format&fit=crop&q=80&w=400',
+      image: finalImage,
       materials: parsedMaterials,
       steps: parsedSteps,
     };
@@ -254,6 +259,7 @@ export default function DIYGuidesPage() {
       difficulty: 'Easy',
       points: 50,
       duration: '20 menit',
+      imagePath: '',
       materialsText: '',
       stepsText: '',
     });
@@ -627,6 +633,17 @@ export default function DIYGuidesPage() {
                   placeholder="Contoh: Lampu Hias Estetik dari Botol Kaca Bekas"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full bg-[#f5faf7] border border-[#d7e6dd] rounded-xl px-3.5 py-2.5 text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-[#1f8a5b]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#1d3b2f] mb-1">Path/URL Gambar Sampul (Opsional)</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: /assets/community/panduan-diy/namafile.jpg"
+                  value={formData.imagePath}
+                  onChange={(e) => setFormData({ ...formData, imagePath: e.target.value })}
                   className="w-full bg-[#f5faf7] border border-[#d7e6dd] rounded-xl px-3.5 py-2.5 text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-[#1f8a5b]"
                 />
               </div>

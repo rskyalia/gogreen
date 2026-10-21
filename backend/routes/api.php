@@ -20,6 +20,7 @@ use App\Http\Controllers\WasteBank\DepositController;
 use App\Http\Controllers\WasteBank\MaterialRequestController;
 use App\Http\Controllers\WasteBank\ProfileController;
 use App\Http\Controllers\WasteBank\StatsController as WasteBankStatsController;
+use App\Models\WasteBank;
 use Illuminate\Support\Facades\Route;
 
 // ── Auth publik ───────────────────────────────────────────────────────────
@@ -27,6 +28,12 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('auth')->group(function () {
     Route::middleware('throttle:login')->post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
+});
+
+Route::get('waste-banks', function () {
+    return response()->json([
+        'data' => WasteBank::verified()->select('id', 'name', 'address')->orderBy('name')->get(),
+    ]);
 });
 
 // ── Auth privat ───────────────────────────────────────────────────────────

@@ -162,4 +162,18 @@ class AdminFeatureTest extends TestCase
 
         $this->getJson('/api/admin/stats')->assertStatus(403);
     }
+
+    #[Test]
+    public function public_waste_banks_endpoint_returns_only_verified_banks(): void
+    {
+        WasteBank::factory()->create(['name' => 'Pending Bank', 'verification_status' => 'pending']);
+        $verified = WasteBank::factory()->verified()->create(['name' => 'Verified Bank']);
+
+        $response = $this->getJson('/api/waste-banks');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $verified->id)
+            ->assertJsonPath('data.0.name', 'Verified Bank');
+    }
 }

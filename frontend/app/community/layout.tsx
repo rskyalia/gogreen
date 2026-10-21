@@ -2,8 +2,9 @@
 
 import "../globals.css";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard,
   BookOpen,
@@ -11,11 +12,23 @@ import {
   PackagePlus,
   LogOut,
   Bell,
-  Leaf,
   ShieldCheck,
   AlertTriangle,
   X,
+  CheckCircle2,
+  XCircle,
+  FileText,
 } from "lucide-react";
+
+// Interface untuk tipe data Notifikasi Pengajuan
+interface NotificationItem {
+  id: string;
+  authorName: string;
+  title: string;
+  time: string;
+  isRead: boolean;
+  status: "pending" | "approved" | "rejected";
+}
 
 export default function CommunityLayout({
   children,
@@ -23,40 +36,91 @@ export default function CommunityLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
-  
-  // State untuk mengontrol tampilnya modal pop-up konfirmasi
+  const { logout } = useAuth(); // 👈 Panggil hook useAuth
+
+  // State logout modal
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Eksekusi logout saat user menekan tombol "Ya, Keluar" di modal pop-up
+  // State Notifikasi
+  const [showNotifications, setShowNotifications] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Dummy Data Notifikasi Pengajuan Karya dari Warga
+  const [notifications, setNotifications] = useState<NotificationItem[]>([
+    {
+      id: "1",
+      authorName: "Budi Santoso",
+      title: "Mengajukan karya: Pot Bunga dari Botol Plastik Bekas",
+      time: "10 menit yang lalu",
+      isRead: false,
+      status: "pending",
+    },
+    {
+      id: "2",
+      authorName: "Siti Rahma",
+      title: "Mengajukan karya: Lampu Hias dari Bambu Daur Ulang",
+      time: "1 jam yang lalu",
+      isRead: false,
+      status: "pending",
+    },
+    {
+      id: "3",
+      authorName: "Ahmad Fauzi",
+      title: "Mengajukan karya: Kompostor Sederhana Skala Rumah Tangga",
+      time: "3 jam yang lalu",
+      isRead: true,
+      status: "approved",
+    },
+  ]);
+
+  // Hitung berapa notifikasi yang belum dibaca
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
+
+  // Sembunyikan dropdown saat klik di luar area bel/dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowNotifications(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Handler untuk menandai semua notifikasi sudah dibaca
+  const markAllAsRead = () => {
+    setNotifications((prev) =>
+      prev.map((item) => ({ ...item, isRead: true }))
+    );
+  };
+
+  // Handler aksi validasi karya langsung dari notifikasi
+  const handleAction = (id: string, action: "approved" | "rejected") => {
+    setNotifications((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, status: action, isRead: true } : item
+      )
+    );
+  };
+
+  // 🔴 PERBAIKAN LOGOUT MENGGUNAKAN AUTHCONTEXT
   const confirmLogout = async () => {
     setIsLoggingOut(true);
 
     try {
-      const token = localStorage.getItem("token");
-
-      if (token) {
-        await fetch("http://localhost:8000/api/auth/logout", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-            "Accept": "application/json",
-          },
-        });
-      }
+      await logout();
     } catch (error) {
-      console.error("Error saat logout API:", error);
+      console.error("Error saat proses logout:", error);
     } finally {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-
       setIsLoggingOut(false);
       setShowLogoutModal(false);
-
-      // Redirect ke Landing Page
-      router.push("/");
+      window.location.href = "/";
     }
   };
 
@@ -70,24 +134,154 @@ export default function CommunityLayout({
   return (
     <div className="min-h-screen bg-[#f5faf7] flex flex-col font-sans text-[#1d3b2f]">
       {/* Top Header Navbar */}
-      <header className="bg-white border-b border-[#d7e6dd] sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between shadow-2xs">
+      <header className="bg-white border-b border-[#d7e6dd] sticky top-0 z-30 px-6 py-3 flex items-center justify-between shadow-2xs">
+        {/* Brand Logo & Name */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-[#0b4d36] font-bold text-xl tracking-tight">
-            <Leaf className="w-6 h-6 fill-[#1f8a5b] text-[#0b4d36]" />
-            <span className="font-serif text-2xl">Go Green</span>
-            <span className="text-[10px] bg-[#e1f3e9] text-[#0b4d36] uppercase font-extrabold tracking-widest px-2 py-0.5 rounded-full border border-[#d7e6dd]">
-              INNOVATION
+          <div className="w-10 h-10 bg-[#0b4d36] text-white font-extrabold text-sm rounded-xl flex items-center justify-center tracking-tight shadow-xs">
+            GG
+          </div>
+          <div className="flex flex-col justify-center leading-none">
+            <span className="font-sans font-bold text-base text-[#0b4d36] tracking-wide uppercase">
+              GO GREEN
+            </span>
+            <span className="text-xs text-[#6b8279] font-normal mt-0.5">
+              Komunitas
             </span>
           </div>
         </div>
 
         {/* Profile, Notifikasi & Tombol Keluar */}
         <div className="flex items-center gap-4">
-          <button className="p-2 text-[#6b8279] hover:bg-[#e1f3e9] hover:text-[#0b4d36] rounded-full transition-all relative cursor-pointer">
-            <Bell className="w-5 h-5" />
-            <span className="w-2 h-2 bg-[#1f8a5b] rounded-full absolute top-1.5 right-1.5 ring-2 ring-white"></span>
-          </button>
+          {/* Container Tombol & Pop-up Notifikasi */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowNotifications((prev) => !prev)}
+              title="Notifikasi Pengajuan Karya"
+              className="p-2 text-[#6b8279] hover:bg-[#e1f3e9] hover:text-[#0b4d36] rounded-full transition-all relative cursor-pointer"
+            >
+              <Bell className="w-5 h-5" />
+              {/* Badge Jumlah Notifikasi Belum Dibaca */}
+              {unreadCount > 0 && (
+                <span className="w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full absolute -top-0.5 -right-0.5 flex items-center justify-center ring-2 ring-white animate-pulse">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
 
+            {/* Menu Pop-up Dropdown Notifikasi */}
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl border border-[#d7e6dd] shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="p-4 border-b border-[#d7e6dd] flex items-center justify-between bg-[#f5faf7]">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-[#1d3b2f] uppercase tracking-wider">
+                      Pengajuan Karya Warga
+                    </h4>
+                    {unreadCount > 0 && (
+                      <span className="bg-[#1f8a5b] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        {unreadCount} Baru
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-[11px] text-[#1f8a5b] hover:underline font-semibold cursor-pointer"
+                    >
+                      Tandai dibaca
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-80 overflow-y-auto divide-y divide-[#edf4f0]">
+                  {notifications.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-[#6b8279]">
+                      Belum ada pengajuan karya dari warga.
+                    </div>
+                  ) : (
+                    notifications.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`p-3.5 transition-all ${
+                          !item.isRead ? "bg-[#e1f3e9]/40" : "bg-white"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-[#cfeedd] text-[#0b4d36] font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                            <FileText className="w-4 h-4 text-[#0b4d36]" />
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-bold text-[#1d3b2f]">
+                                {item.authorName}
+                              </p>
+                              <span className="text-[10px] text-[#6b8279]">
+                                {item.time}
+                              </span>
+                            </div>
+                            <p className="text-xs text-[#426355] leading-snug">
+                              {item.title}
+                            </p>
+
+                            {/* Tombol Aksi Langsung atau Indicator Status */}
+                            <div className="pt-1.5 flex items-center justify-between">
+                              {item.status === "pending" ? (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleAction(item.id, "approved")}
+                                    className="px-2.5 py-1 bg-[#0b4d36] hover:bg-[#1f8a5b] text-white text-[10px] font-semibold rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                                  >
+                                    <CheckCircle2 className="w-3 h-3" /> Terima
+                                  </button>
+                                  <button
+                                    onClick={() => handleAction(item.id, "rejected")}
+                                    className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-semibold rounded-lg flex items-center gap-1 transition-all cursor-pointer border border-red-200"
+                                  >
+                                    <XCircle className="w-3 h-3" /> Tolak
+                                  </button>
+                                </div>
+                              ) : (
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    item.status === "approved"
+                                      ? "bg-emerald-100 text-emerald-800"
+                                      : "bg-red-100 text-red-800"
+                                  }`}
+                                >
+                                  {item.status === "approved"
+                                    ? "Disetujui"
+                                    : "Ditolak"}
+                                </span>
+                              )}
+
+                              <Link
+                                href="/community/submissions"
+                                onClick={() => setShowNotifications(false)}
+                                className="text-[10px] text-[#1f8a5b] font-bold hover:underline"
+                              >
+                                Tinjau Detail →
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="p-2.5 border-t border-[#d7e6dd] bg-[#f5faf7] text-center">
+                  <Link
+                    href="/community/submissions"
+                    onClick={() => setShowNotifications(false)}
+                    className="text-xs font-bold text-[#0b4d36] hover:underline block py-1"
+                  >
+                    Lihat Semua Validasi Karya
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Profile Badge */}
           <div className="flex items-center gap-2.5 pl-3 border-l border-[#d7e6dd]">
             <div className="w-9 h-9 bg-[#cfeedd] text-[#0b4d36] font-bold text-xs rounded-full flex items-center justify-center border border-[#d7e6dd] shadow-2xs">
               DIY
