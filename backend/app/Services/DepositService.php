@@ -8,6 +8,7 @@ use App\Models\DepositItem;
 use App\Models\User;
 use App\Models\WasteBank;
 use App\Models\WasteCategory;
+use App\Notifications\DepositRecorded;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -149,7 +150,7 @@ class DepositService
             ->get()
             ->keyBy('id');
 
-        return DB::transaction(function () use (
+        $deposit = DB::transaction(function () use (
             $wasteBank, $recorder, $data, $categories
         ): Deposit {
             // 1. Kunci baris user untuk mencegah race condition saldo
@@ -230,5 +231,12 @@ class DepositService
                 'recorder',
             ]);
         });
+
+        // Notifikasi dikirim SETELAH transaksi commit agar tidak hilang bila
+        // transaksi dibatalkan karena exception.
+        $depositor = $deposit->depositor;
+        $depositor->notify(new DepositRecorded($deposit, $deposit->total_points));
+
+        return $deposit;
     }
 }

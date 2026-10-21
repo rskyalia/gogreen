@@ -36,8 +36,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'points_balance'    => 'integer',
+            'password' => 'hashed',
+            'points_balance' => 'integer',
         ];
     }
 
@@ -56,7 +56,7 @@ class User extends Authenticatable
     {
         do {
             // Format: GG-XXXXXX  (huruf kapital + angka, 6 karakter)
-            $code = 'GG-' . strtoupper(Str::random(6));
+            $code = 'GG-'.strtoupper(Str::random(6));
         } while (static::where('member_code', $code)->exists());
 
         return $code;
@@ -64,12 +64,35 @@ class User extends Authenticatable
 
     // ── Role helpers ──────────────────────────────────────────────────────
 
-    public function isDeveloper(): bool  { return $this->role === 'developer'; }
-    public function isWasteBank(): bool  { return $this->role === 'waste_bank'; }
-    public function isCommunity(): bool  { return $this->role === 'community'; }
-    public function isUser(): bool       { return $this->role === 'user'; }
-    public function isActive(): bool     { return $this->status === 'active'; }
-    public function isBanned(): bool     { return $this->status === 'banned'; }
+    public function isDeveloper(): bool
+    {
+        return $this->role === 'developer';
+    }
+
+    public function isWasteBank(): bool
+    {
+        return $this->role === 'waste_bank';
+    }
+
+    public function isCommunity(): bool
+    {
+        return $this->role === 'community';
+    }
+
+    public function isUser(): bool
+    {
+        return $this->role === 'user';
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
+    }
+
+    public function isBanned(): bool
+    {
+        return $this->status === 'banned';
+    }
 
     // ── Relations ─────────────────────────────────────────────────────────
 

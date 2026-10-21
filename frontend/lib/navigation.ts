@@ -17,6 +17,9 @@ import {
   Image,
   Gift,
   Activity,
+  CreditCard,
+  Coins,
+  MapPin,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -33,8 +36,17 @@ export interface NavGroup {
   items:    NavItem[];
 }
 
-// ── Menu bank sampah ──────────────────────────────────────────────────────
+// ── Menu user (warga) ─────────────────────────────────────────────────────
 
+export const USER_NAV: NavItem[] = [
+  { label: 'Dashboard',      href: '/dashboard',    icon: LayoutDashboard },
+  { label: 'Kartu QR',       href: '/member-card',  icon: CreditCard      },
+  { label: 'Bank Sampah',    href: '/waste-banks',  icon: MapPin          },
+  { label: 'Riwayat Setor',  href: '/deposits',     icon: ArrowDownToLine },
+  { label: 'Riwayat Poin',   href: '/points',       icon: Coins           },
+];
+
+// ── Menu bank sampah ──────────────────────────────────────────────────────
 export const WASTE_BANK_NAV: NavItem[] = [
   { label: 'Ringkasan',      href: '/waste-bank/dashboard',         icon: LayoutDashboard },
   { label: 'Input Setoran',  href: '/waste-bank/deposits/new',      icon: ArrowDownToLine },

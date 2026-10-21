@@ -8,6 +8,7 @@ import {
     ImagePlus,
     Leaf,
     Lightbulb,
+    MapPin,
     Recycle,
     RotateCcw,
     Trash2,
@@ -236,18 +237,31 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
 
                             <div className="mt-5 flex flex-wrap gap-3">
                                 {tutorial ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => onOpenTutorial(tutorial.id)}
-                                        className="rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
-                                    >
-                                        Buka tutorial
-                                    </button>
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => onOpenTutorial(tutorial.id)}
+                                            className="rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
+                                        >
+                                            Buka tutorial
+                                        </button>
+                                        {/* Jika bisa didaur ulang (bukan organik), tawarkan juga bank sampah */}
+                                        {kind === "daur-ulang" && (
+                                            <Link
+                                                href="/waste-banks"
+                                                className="flex items-center gap-1.5 rounded-xl border border-forest/30 px-5 py-2.5 text-sm font-semibold text-forest transition-colors hover:bg-mist"
+                                            >
+                                                <MapPin className="size-4" aria-hidden />
+                                                Cari bank sampah
+                                            </Link>
+                                        )}
+                                    </>
                                 ) : (
                                     <Link
-                                        href="/#bank-sampah"
-                                        className="rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
+                                        href="/waste-banks"
+                                        className="flex items-center gap-1.5 rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
                                     >
+                                        <MapPin className="size-4" aria-hidden />
                                         Cari bank sampah
                                     </Link>
                                 )}

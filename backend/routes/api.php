@@ -11,6 +11,11 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WasteBankController as AdminWasteBankController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\User\MemberCardController;
+use App\Http\Controllers\User\NotificationController;
+use App\Http\Controllers\User\PointLedgerController;
+use App\Http\Controllers\User\SummaryController;
+use App\Http\Controllers\User\UserDepositController;
+use App\Http\Controllers\User\WasteBankSearchController;
 use App\Http\Controllers\WasteBank\DepositController;
 use App\Http\Controllers\WasteBank\MaterialRequestController;
 use App\Http\Controllers\WasteBank\ProfileController;
@@ -71,6 +76,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:user')->prefix('user')->group(function () {
         Route::get('member-card', [MemberCardController::class, 'show']);
         Route::middleware('throttle:member-token')->post('member-token', [MemberCardController::class, 'generateToken']);
+
+        Route::get('summary', SummaryController::class);
+
+        Route::get('deposits', [UserDepositController::class, 'index']);
+        Route::get('deposits/{id}', [UserDepositController::class, 'show']);
+
+        Route::get('points', PointLedgerController::class);
+
+        // Notifikasi — read-all sebelum {id} agar tidak terambil sebagai param
+        Route::get('notifications', [NotificationController::class, 'index']);
+        Route::patch('notifications/read-all', [NotificationController::class, 'markAllRead']);
+        Route::patch('notifications/{id}/read', [NotificationController::class, 'markRead']);
+
+        // Pencarian bank sampah
+        Route::get('waste-banks', [WasteBankSearchController::class, 'index']);
+        Route::get('waste-banks/{id}', [WasteBankSearchController::class, 'show']);
     });
 
     // ── Community ─────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import {
     LayoutDashboard,
     Leaf,
     LogOut,
+    Recycle,
     ScanLine,
     TrendingUp,
     Users,
@@ -15,12 +16,14 @@ import OverviewView from "./overviewView";
 import ScanView from "./scanview";
 import DiyView from "./DIYview";
 import ImpactView from "./impactview";
+import SetoranView from "./SetoranView";
 
-export type View = "dashboard" | "scan" | "komunitas" | "dampak";
+export type View = "dashboard" | "scan" | "komunitas" | "dampak" | "setoran";
 
 const nav: { key: View; label: string; Icon: LucideIcon }[] = [
     { key: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
     { key: "scan", label: "Scan Sampah", Icon: ScanLine },
+    { key: "setoran", label: "Setor Sampah", Icon: Recycle },
     { key: "komunitas", label: "Komunitas DIY", Icon: Users },
     { key: "dampak", label: "Dampak Saya", Icon: TrendingUp },
 ];
@@ -106,6 +109,7 @@ export default function DashboardShell() {
                         <OverviewView name={DUMMY_NAME.split(" ")[0]} onScan={() => go("scan")} />
                     )}
                     {view === "scan" && <ScanView onOpenTutorial={openTutorial} />}
+                    {view === "setoran" && <SetoranView />}
                     {view === "komunitas" && <DiyView initialId={diyId} />}
                     {view === "dampak" && <ImpactView />}
                 </main>

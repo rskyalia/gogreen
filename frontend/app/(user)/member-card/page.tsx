@@ -9,17 +9,21 @@
  * - member_code ditampilkan di bawah QR dengan tombol salin
  * - Hitung mundur masa berlaku token (5 menit)
  * - Token diperbarui otomatis 30 detik sebelum habis
- * - Tombol refresh manual
+ * - Polling saldo tiap 5 detik; jika naik → tampilkan layar sukses setoran
+ *   (nama bank sampah, kg, poin) dari notifikasi terbaru
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { Card, Button, useToast } from '@/components/ui';
 import { api, firstError } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { RefreshCw, Copy, Check, CreditCard, Clock } from 'lucide-react';
+import {
+  RefreshCw, Copy, Check, CreditCard, Clock,
+  CheckCircle, ArrowLeft,
+} from 'lucide-react';
 
-// QRCodeSVG diimpor secara lazy agar tidak masuk SSR bundle
 const QRCodeSVG = dynamic(
   () => import('qrcode.react').then((m) => ({ default: m.QRCodeSVG })),
   { ssr: false, loading: () => <QrPlaceholder /> },
@@ -37,7 +41,13 @@ interface MemberCard {
 
 interface MemberToken {
   token: string;
-  expires_at: string; // ISO 8601
+  expires_at: string;
+}
+
+interface DepositSuccess {
+  waste_bank_name: string;
+  total_kg: number;
+  total_points: number;
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────
@@ -80,7 +90,11 @@ function CountdownBadge({ expiresAt }: { expiresAt: string }) {
       ].join(' ')}
       role="status"
       aria-live="polite"
-      aria-label={isExpired ? 'Token kedaluwarsa' : `Token berlaku ${mins}:${String(secs).padStart(2, '0')}`}
+      aria-label={
+        isExpired
+          ? 'Token kedaluwarsa'
+          : `Token berlaku ${mins}:${String(secs).padStart(2, '0')}`
+      }
     >
       <Clock size={12} aria-hidden="true" />
       {isExpired
@@ -90,7 +104,88 @@ function CountdownBadge({ expiresAt }: { expiresAt: string }) {
   );
 }
 
+// ── Layar sukses setoran ──────────────────────────────────────────────────
+
+function DepositSuccessScreen({
+  info,
+  onBack,
+}: {
+  info: DepositSuccess;
+  onBack: () => void;
+}) {
+  const router = useRouter();
+
+  return (
+    <div className="mx-auto max-w-sm space-y-4">
+      <Card>
+        <div className="flex flex-col items-center gap-5 py-6 text-center">
+          <CheckCircle size={52} className="text-leaf" aria-hidden="true" />
+          <div>
+            <h2 className="font-serif text-2xl font-semibold text-forest">
+              Setoran Berhasil!
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Poin telah dikreditkan ke akunmu.
+            </p>
+          </div>
+
+          <div className="w-full rounded-xl border border-mint bg-mist p-4 text-left space-y-2">
+            <Row label="Bank Sampah" value={info.waste_bank_name} />
+            <Row
+              label="Total Berat"
+              value={`${Number(info.total_kg).toFixed(2)} kg`}
+            />
+            <Row
+              label="Poin Diperoleh"
+              value={`+${info.total_points.toLocaleString('id-ID')}`}
+              valueClass="font-semibold text-forest"
+            />
+          </div>
+
+          <div className="flex w-full gap-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={ArrowLeft}
+              onClick={onBack}
+              className="flex-1"
+            >
+              Kembali
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => router.push('/dashboard')}
+              className="flex-1"
+            >
+              Dashboard
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  valueClass = 'text-ink',
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-muted">{label}</span>
+      <span className={valueClass}>{value}</span>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────
+
+const BALANCE_POLL_MS = 5_000;
 
 export default function MemberCardPage() {
   const { user }  = useAuth();
@@ -102,14 +197,21 @@ export default function MemberCardPage() {
   const [refreshing, setRefreshing]   = useState(false);
   const [copied, setCopied]           = useState(false);
 
-  // Ref untuk auto-refresh timer
+  // Layar sukses setoran
+  const [depositSuccess, setDepositSuccess] = useState<DepositSuccess | null>(null);
+  const prevBalanceRef = useRef<number | null>(null);
+
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Fetch data kartu member ──────────────────────────────────────────
 
   useEffect(() => {
     api.get<{ data: MemberCard }>('/user/member-card')
-      .then((res) => setCard(res.data))
+      .then((res) => {
+        setCard(res.data);
+        prevBalanceRef.current = res.data.points_balance;
+      })
       .catch((err) => toast(firstError(err), 'error'))
       .finally(() => setLoadingCard(false));
   }, [toast]);
@@ -119,7 +221,6 @@ export default function MemberCardPage() {
   const generateToken = useCallback(async () => {
     setRefreshing(true);
 
-    // Batalkan timer refresh lama jika ada
     if (refreshTimerRef.current) {
       clearTimeout(refreshTimerRef.current);
       refreshTimerRef.current = null;
@@ -130,8 +231,7 @@ export default function MemberCardPage() {
       const newToken = res.data;
       setToken(newToken);
 
-      // Auto-refresh 30 detik sebelum kedaluwarsa
-      const msToExpiry = new Date(newToken.expires_at).getTime() - Date.now();
+      const msToExpiry  = new Date(newToken.expires_at).getTime() - Date.now();
       const refreshAfter = Math.max(0, msToExpiry - 30_000);
 
       refreshTimerRef.current = setTimeout(() => {
@@ -144,17 +244,54 @@ export default function MemberCardPage() {
     }
   }, [toast]);
 
-  // Buat token saat halaman pertama dimuat
   useEffect(() => {
     generateToken();
-
     return () => {
-      if (refreshTimerRef.current) {
-        clearTimeout(refreshTimerRef.current);
-      }
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Polling saldo tiap 5 detik ───────────────────────────────────────
+
+  useEffect(() => {
+    if (loadingCard) return;
+
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const [cardRes, notifRes] = await Promise.all([
+          api.get<{ data: MemberCard }>('/user/member-card'),
+          api.get<{ data: Array<{ data: { waste_bank_name: string; total_kg: number; total_points: number }; read_at: string | null }> }>('/user/notifications?per_page=1'),
+        ]);
+
+        const newBalance = cardRes.data.points_balance;
+        setCard(cardRes.data);
+
+        // Saldo naik → tampilkan layar sukses dari notifikasi terbaru
+        if (
+          prevBalanceRef.current !== null &&
+          newBalance > prevBalanceRef.current
+        ) {
+          const latestNotif = notifRes.data[0];
+          if (latestNotif) {
+            setDepositSuccess({
+              waste_bank_name: latestNotif.data.waste_bank_name,
+              total_kg:        latestNotif.data.total_kg,
+              total_points:    latestNotif.data.total_points,
+            });
+          }
+        }
+
+        prevBalanceRef.current = newBalance;
+      } catch {
+        // abaikan error poll
+      }
+    }, BALANCE_POLL_MS);
+
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
+  }, [loadingCard]);
 
   // ── Salin member_code ─────────────────────────────────────────────────
 
@@ -169,7 +306,18 @@ export default function MemberCardPage() {
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────
+  // ── Tampilkan layar sukses setoran ────────────────────────────────────
+
+  if (depositSuccess) {
+    return (
+      <DepositSuccessScreen
+        info={depositSuccess}
+        onBack={() => setDepositSuccess(null)}
+      />
+    );
+  }
+
+  // ── Loading state ─────────────────────────────────────────────────────
 
   if (loadingCard) {
     return (
@@ -185,6 +333,8 @@ export default function MemberCardPage() {
       </div>
     );
   }
+
+  // ── Render kartu ──────────────────────────────────────────────────────
 
   return (
     <div className="mx-auto max-w-sm space-y-4">
@@ -206,12 +356,10 @@ export default function MemberCardPage() {
         </Button>
       </div>
 
-      {/* Card utama */}
       <Card>
         <div className="flex flex-col items-center gap-5 py-4">
-          {/* Nama & saldo */}
+          {/* Avatar + nama + saldo */}
           <div className="text-center">
-            {/* Avatar */}
             <div
               className="mx-auto mb-3 flex h-14 w-14 items-center justify-center
                          rounded-full bg-forest text-xl font-bold text-white"
