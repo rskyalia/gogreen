@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
@@ -17,8 +14,20 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->enum('role', ['user', 'waste_bank', 'developer', 'community'])->default('user');
+            $table->string('phone')->nullable();
+            $table->string('avatar')->nullable();
+            // member_code: di-generate otomatis untuk role=user, dipakai sebagai ID/QR
+            $table->string('member_code')->unique()->nullable();
+            $table->unsignedInteger('points_balance')->default(0);
+            $table->enum('status', ['active', 'banned'])->default('active');
+            $table->text('banned_reason')->nullable();
             $table->rememberToken();
             $table->timestamps();
+
+            $table->index('role');
+            $table->index('status');
+            $table->index('member_code');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
@@ -37,13 +46,10 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('users');
     }
 };

@@ -2,17 +2,17 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/**
+ * Placeholder test bawaan Laravel.
+ * Menggunakan endpoint yang terdaftar di aplikasi ini (/api/up).
+ */
 class ExampleTest extends TestCase
 {
-    /**
-     * A basic test example.
-     */
-    public function test_the_application_returns_a_successful_response(): void
+    public function test_health_check_returns_ok(): void
     {
-        $response = $this->get('/');
+        $response = $this->get('/up');
 
         $response->assertStatus(200);
     }

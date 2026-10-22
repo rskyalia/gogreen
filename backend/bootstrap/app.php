@@ -1,9 +1,13 @@
 <?php
 
+use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\WasteBankVerifiedMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -13,10 +17,28 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Alias middleware role agar bisa dipakai sebagai 'role:developer', dll.
+        $middleware->alias([
+            'role' => RoleMiddleware::class,
+            'waste_bank.verified' => WasteBankVerifiedMiddleware::class,
+        ]);
+
+        // CORS untuk semua request
+        $middleware->append(HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Semua request ke /api/* selalu terima JSON response
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson()
         );
+
+        // Format error validasi konsisten: { message, errors }
+        $exceptions->render(function (ValidationException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Data yang diberikan tidak valid.',
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+        });
     })->create();
