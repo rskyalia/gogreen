@@ -7,7 +7,7 @@
  * tombol "Buka navigasi" ke Google Maps.
  */
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, Button } from '@/components/ui';
@@ -52,6 +52,20 @@ const DAY_ORDER = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function WasteBankDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="mx-auto max-w-lg space-y-4">
+        <div className="h-7 w-36 animate-pulse rounded bg-line" />
+        <div className="h-48 animate-pulse rounded-2xl bg-line" />
+        <div className="h-32 animate-pulse rounded-2xl bg-line" />
+      </div>
+    }>
+      <WasteBankDetailContent />
+    </Suspense>
+  );
+}
+
+function WasteBankDetailContent() {
   const { id }    = useParams<{ id: string }>();
   const router    = useRouter();
   const { toast } = useToast();

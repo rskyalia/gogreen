@@ -4,7 +4,7 @@
  * /deposits/[id]  — detail satu setoran
  */
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, Button } from '@/components/ui';
@@ -32,6 +32,19 @@ interface DepositDetail {
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function DepositDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="mx-auto max-w-lg space-y-4">
+        <div className="h-7 w-32 animate-pulse rounded bg-line" />
+        <div className="h-60 animate-pulse rounded-2xl bg-line" />
+      </div>
+    }>
+      <DepositDetailContent />
+    </Suspense>
+  );
+}
+
+function DepositDetailContent() {
   const { id }    = useParams<{ id: string }>();
   const router    = useRouter();
   const { toast } = useToast();

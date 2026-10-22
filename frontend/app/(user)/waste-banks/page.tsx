@@ -10,7 +10,7 @@
  *   4. Klik baris/penanda → detail panel di bawah atau navigasi ke /waste-banks/{id}
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -53,6 +53,19 @@ interface Category {
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function WasteBanksPage() {
+  return (
+    <Suspense fallback={
+      <div className="mx-auto max-w-2xl space-y-4">
+        <div className="h-8 w-48 animate-pulse rounded bg-line" />
+        <div className="h-72 w-full animate-pulse rounded-2xl bg-line" />
+      </div>
+    }>
+      <WasteBanksContent />
+    </Suspense>
+  );
+}
+
+function WasteBanksContent() {
   const { toast }      = useToast();
   const searchParams   = useSearchParams();
   const initialCatId   = searchParams.get('category_id');

@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Leaf, LogOut } from 'lucide-react';
@@ -20,6 +21,18 @@ function Logo() {
 }
 
 export default function WasteBankLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Suspense fallback={null}>
+      <WasteBankLayoutContent>{children}</WasteBankLayoutContent>
+    </Suspense>
+  );
+}
+
+function WasteBankLayoutContent({
   children,
 }: {
   children: React.ReactNode;

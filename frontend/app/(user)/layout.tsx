@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Topbar } from '@/components/layout/Topbar';
 import { UserBottomNav } from '@/components/layout/UserBottomNav';
 
@@ -12,7 +13,9 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
       >
         {children}
       </main>
-      <UserBottomNav />
+      <Suspense fallback={null}>
+        <UserBottomNav />
+      </Suspense>
     </div>
   );
 }

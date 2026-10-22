@@ -18,6 +18,7 @@
  *   - both        → kedua tombol
  */
 
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui';
@@ -27,6 +28,19 @@ import {
 } from 'lucide-react';
 
 export default function ScanResultPage() {
+  return (
+    <Suspense fallback={
+      <div className="mx-auto max-w-lg space-y-4">
+        <div className="h-5 w-24 animate-pulse rounded bg-line" />
+        <div className="h-48 animate-pulse rounded-2xl bg-line" />
+      </div>
+    }>
+      <ScanResultContent />
+    </Suspense>
+  );
+}
+
+function ScanResultContent() {
   const params = useSearchParams();
 
   const recommendedPath = params.get('recommended_path') ?? '';

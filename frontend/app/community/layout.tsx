@@ -1,6 +1,7 @@
 "use client";
 
 import "../globals.css";
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
@@ -31,6 +32,18 @@ interface NotificationItem {
 }
 
 export default function CommunityLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Suspense fallback={null}>
+      <CommunityLayoutContent>{children}</CommunityLayoutContent>
+    </Suspense>
+  );
+}
+
+function CommunityLayoutContent({
   children,
 }: {
   children: React.ReactNode;
