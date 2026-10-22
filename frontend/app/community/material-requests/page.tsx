@@ -503,8 +503,8 @@ export default function MaterialRequestsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-[#1d3b2f] mb-1">Lokasi Pengambilan / Kecamatan</label>
+              {/* <div>
+                <label className="block font-bold text-[#1d3b2f] mb-1">Lokasi Pengambilan</label>
                 <input
                   type="text"
                   placeholder="Contoh: Kecamatan Ciracas, Jakarta Timur"
@@ -512,6 +512,27 @@ export default function MaterialRequestsPage() {
                   onChange={e => setFormData({ ...formData, location: e.target.value })}
                   className="w-full bg-[#f5faf7] border border-[#d7e6dd] rounded-xl px-3.5 py-2.5 text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-[#1f8a5b]"
                 />
+              </div> */}
+              <div>
+                <label className="block font-bold text-[#1d3b2f] mb-1">Alamat Pengambilan Sampah </label>
+                {isLoadingBankSampah ? (
+                  <div className="flex items-center gap-2 py-2.5 px-3.5 bg-[#f5faf7] border border-[#d7e6dd] rounded-xl text-[#6b8279]">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#1f8a5b]" />
+                    <span>Memuat daftar bank sampah...</span>
+                  </div>
+                ) : (
+                  <select
+                    value={formData.targetBankSampah}
+                    onChange={e => setFormData({ ...formData, targetBankSampah: e.target.value })}
+                    className="w-full bg-[#f5faf7] border border-[#d7e6dd] rounded-xl px-3.5 py-2.5 text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-[#1f8a5b]"
+                  >
+                    {bankSampahList.map(bank => (
+                      <option key={bank.id} value={bank.name}>
+                        {bank.address}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Dropdown Bank Sampah yang selalu terbarui otomatis saat modal dibuka */}
@@ -530,7 +551,7 @@ export default function MaterialRequestsPage() {
                   >
                     {bankSampahList.map(bank => (
                       <option key={bank.id} value={bank.name}>
-                        {bank.name} {bank.address ? `(${bank.address})` : ''}
+                        {bank.name} 
                       </option>
                     ))}
                   </select>
