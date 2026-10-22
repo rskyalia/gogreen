@@ -14,21 +14,23 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Leaf, LoaderCircle } from 'lucide-react';
-import { loginWithGoogle, type AuthUser, getDashboardPath } from '@/lib/auth';
+import { type AuthUser, getDashboardPath } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 
 // ── Pesan error per kode ──────────────────────────────────────────────────
 
 const ERROR_MESSAGES: Record<string, string> = {
-  oauth_failed:   'Proses login dengan Google gagal. Coba lagi.',
-  role_mismatch:  'Akun ini terdaftar sebagai peran lain (bank sampah / admin). Gunakan login email.',
-  banned:         'Akun Anda telah diblokir. Hubungi administrator.',
+  oauth_failed:  'Proses login dengan Google gagal. Coba lagi.',
+  role_mismatch: 'Akun ini terdaftar sebagai peran lain (bank sampah / admin). Gunakan login email.',
+  banned:        'Akun Anda telah diblokir. Hubungi administrator.',
 };
 
 // ── Inner component (pakai useSearchParams) ───────────────────────────────
 
 function CallbackContent() {
-  const params = useSearchParams();
-  const router  = useRouter();
+  const params           = useSearchParams();
+  const router           = useRouter();
+  const { setSession }   = useAuth();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,14 +51,18 @@ function CallbackContent() {
 
     try {
       const user: AuthUser = JSON.parse(atob(userRaw));
-      loginWithGoogle(token, user);
+
+      // Inject langsung ke AuthContext — tidak perlu reload halaman
+      setSession(token, user);
+
+      // Navigasi ke dashboard sesuai role
       router.replace(getDashboardPath(user.role));
     } catch {
       setErrorMsg('Gagal memproses data login. Coba lagi.');
     }
-  }, [params, router]);
+  }, [params, router, setSession]);
 
-  // ── Error state ────────────────────────────────────────────────────────
+  // ── Error state ───────────────────────────────────────────────────────
   if (errorMsg) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-paper px-5 text-center">
@@ -75,7 +81,7 @@ function CallbackContent() {
     );
   }
 
-  // ── Loading state ──────────────────────────────────────────────────────
+  // ── Loading state ─────────────────────────────────────────────────────
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-paper">
       <span className="grid size-14 place-items-center rounded-full bg-mint">

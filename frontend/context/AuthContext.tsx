@@ -20,6 +20,7 @@ import {
   loginUser,
   logoutUser,
   registerUser,
+  loginWithGoogle,
 } from '@/lib/auth';
 import { getToken, removeToken } from '@/lib/api';
 import { removeUser } from '@/lib/auth';
@@ -41,6 +42,8 @@ interface AuthContextValue {
   }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  /** Inject user + token langsung ke context (dipakai setelah OAuth callback) */
+  setSession: (token: string, user: AuthUser) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -124,6 +127,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(fresh);
   }, []);
 
+  /**
+   * Inject token + user langsung ke context.
+   * Dipanggil dari halaman OAuth callback agar tidak perlu reload.
+   */
+  const setSession = useCallback((token: string, user: AuthUser) => {
+    loginWithGoogle(token, user);   // simpan ke localStorage + cookie
+    setUser(user);
+    setIsLoading(false);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -134,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         logout,
         refreshUser,
+        setSession,
       }}
     >
       {children}
