@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import Image from "next/image";
 import {
     ArrowLeft,
     ArrowUpRight,
+    Award,
     Bookmark,
     Check,
     Clock,
@@ -12,7 +13,8 @@ import {
     Lightbulb,
     Search,
 } from "lucide-react";
-import { categories, getTutorial, tutorials, type Tutorial } from "@/lib/tutorials";
+import { firstError } from "@/lib/api";
+import { fetchTutorials, type Tutorial } from "@/lib/diy";
 
 const initials = (name: string) =>
     name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -30,7 +32,14 @@ function Cover({ t, className = "" }: { t: Tutorial; className?: string }) {
     return (
         <div className={`relative overflow-hidden ${t.tone} ${className}`}>
             {t.image ? (
-                <Image src={t.image} alt="" fill sizes="(min-width: 1024px) 420px, 100vw" className="object-cover" />
+                <Image
+                    src={t.image}
+                    alt=""
+                    fill
+                    unoptimized
+                    sizes="(min-width: 1024px) 420px, 100vw"
+                    className="object-cover"
+                />
             ) : (
                 <>
                     <span className="absolute -right-10 -top-10 size-40 rounded-full bg-white/25" />
@@ -106,10 +115,12 @@ function TutorialCard({
                         <Clock className="size-3.5" aria-hidden />
                         {t.time}
                     </span>
-                    <span className="flex items-center gap-1.5">
-                        <Heart className="size-3.5" aria-hidden />
-                        {t.likes}
-                    </span>
+                    {t.rewardPoints > 0 && (
+                        <span className="flex items-center gap-1.5">
+                            <Award className="size-3.5" aria-hidden />
+                            +{t.rewardPoints} poin
+                        </span>
+                    )}
                 </div>
 
                 <div className="mt-auto pt-4">
@@ -135,17 +146,74 @@ export default function DiyView({ initialId = null }: { initialId?: string | nul
     const [liked, setLiked] = useState<Set<string>>(new Set());
     const [done, setDone] = useState<Set<string>>(new Set());
 
+    const [tutorials, setTutorials] = useState<Tutorial[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [reload, setReload] = useState(0);
+
+    useEffect(() => {
+        let alive = true;
+        fetchTutorials()
+            .then((data) => {
+                if (alive) {
+                    setTutorials(data);
+                    setError(null);
+                }
+            })
+            .catch((e) => {
+                if (alive) setError(firstError(e, "Gagal memuat tutorial."));
+            })
+            .finally(() => {
+                if (alive) setLoading(false);
+            });
+        return () => {
+            alive = false;
+        };
+    }, [reload]);
+
+    const retry = () => {
+        setLoading(true);
+        setError(null);
+        setReload((n) => n + 1);
+    };
+
     const open = (id: string | null) => {
         setOpenId(id);
         window.scrollTo({ top: 0 });
     };
 
-    const t = openId ? getTutorial(openId) : undefined;
+    const t = openId ? tutorials.find((x) => x.id === openId) : undefined;
+
+    /* ---------- loading & error ---------- */
+    if (loading) {
+        return (
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+                {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-80 animate-pulse rounded-3xl border border-line bg-mist" />
+                ))}
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="rounded-[28px] border border-line bg-white p-10 text-center">
+                <p className="text-sm text-muted">{error}</p>
+                <button
+                    type="button"
+                    onClick={retry}
+                    className="mt-4 rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white"
+                >
+                    Coba lagi
+                </button>
+            </div>
+        );
+    }
 
     /* ---------- detail ---------- */
     if (t) {
         const doneCount = t.steps.filter((_, i) => done.has(`${t.id}:${i}`)).length;
-        const percent = Math.round((doneCount / t.steps.length) * 100);
+        const percent = t.steps.length ? Math.round((doneCount / t.steps.length) * 100) : 0;
         const related = tutorials
             .filter((x) => x.id !== t.id)
             .sort((a, b) => Number(b.category === t.category) - Number(a.category === t.category))
@@ -182,6 +250,12 @@ export default function DiyView({ initialId = null }: { initialId?: string | nul
                                 <Clock className="size-3.5" aria-hidden />
                                 {t.time}
                             </span>
+                            {t.rewardPoints > 0 && (
+                                <span className="flex items-center gap-1.5 text-muted">
+                                    <Award className="size-3.5" aria-hidden />
+                                    +{t.rewardPoints} poin
+                                </span>
+                            )}
                         </div>
 
                         <div className="mt-6 grid grid-cols-2 gap-3">
@@ -192,7 +266,7 @@ export default function DiyView({ initialId = null }: { initialId?: string | nul
                                 className="flex items-center justify-center gap-2 rounded-xl border border-line py-3 text-sm font-semibold text-forest transition-colors hover:bg-mist"
                             >
                                 <Heart className={`size-4 ${liked.has(t.id) ? "fill-current" : ""}`} aria-hidden />
-                                {t.likes + (liked.has(t.id) ? 1 : 0)}
+                                {liked.has(t.id) ? "Disukai" : "Suka"}
                             </button>
                             <button
                                 type="button"
@@ -264,37 +338,42 @@ export default function DiyView({ initialId = null }: { initialId?: string | nul
                     </ol>
                 </section>
 
-                <aside className="flex items-start gap-4 rounded-2xl bg-sun p-5 text-sun-ink">
-                    <Lightbulb className="mt-0.5 size-5 shrink-0" aria-hidden />
-                    <div>
-                        <p className="font-semibold">Tips singkat</p>
-                        <p className="mt-1 text-sm leading-relaxed">{t.tip}</p>
-                    </div>
-                </aside>
+                {t.tip && (
+                    <aside className="flex items-start gap-4 rounded-2xl bg-sun p-5 text-sun-ink">
+                        <Lightbulb className="mt-0.5 size-5 shrink-0" aria-hidden />
+                        <div>
+                            <p className="font-semibold">Tips singkat</p>
+                            <p className="mt-1 text-sm leading-relaxed">{t.tip}</p>
+                        </div>
+                    </aside>
+                )}
 
-                <section>
-                    <h2 className="font-serif text-2xl font-medium text-forest">Tutorial lainnya</h2>
-                    <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                        {related.map((x) => (
-                            <TutorialCard
-                                key={x.id}
-                                t={x}
-                                saved={saved.has(x.id)}
-                                onSave={() => toggle(setSaved, x.id)}
-                                onOpen={() => open(x.id)}
-                            />
-                        ))}
-                    </div>
-                </section>
+                {related.length > 0 && (
+                    <section>
+                        <h2 className="font-serif text-2xl font-medium text-forest">Tutorial lainnya</h2>
+                        <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                            {related.map((x) => (
+                                <TutorialCard
+                                    key={x.id}
+                                    t={x}
+                                    saved={saved.has(x.id)}
+                                    onSave={() => toggle(setSaved, x.id)}
+                                    onOpen={() => open(x.id)}
+                                />
+                            ))}
+                        </div>
+                    </section>
+                )}
             </div>
         );
     }
 
     /* ---------- daftar ---------- */
+    const categories = Array.from(new Set(tutorials.map((x) => x.category)));
     const q = query.trim().toLowerCase();
     const shown = tutorials.filter((x) => {
         const inCat = cat === "Semua" || (cat === "Tersimpan" ? saved.has(x.id) : x.category === cat);
-        const hay = [x.title, x.by, x.category, x.tag, ...x.materials].join(" ").toLowerCase();
+        const hay = [x.title, x.by, x.category, ...x.materials].join(" ").toLowerCase();
         return inCat && (!q || hay.includes(q));
     });
     const chips = ["Semua", ...categories, "Tersimpan"];

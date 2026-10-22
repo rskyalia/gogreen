@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 // Helper sinkronisasi tanggal aman dari SSR & Cascading Render
-const subscribe = () => () => {};
+const subscribe = () => () => { };
 const getClientSnapshot = () =>
   new Intl.DateTimeFormat("id-ID", {
     weekday: "long",

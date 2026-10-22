@@ -5,6 +5,8 @@ import { AdvancedMarker, APIProvider, Map, Pin, useMap } from "@vis.gl/react-goo
 import { LocateFixed, MapPin } from "lucide-react";
 import { api } from "@/lib/api";
 
+declare const google: any;
+
 type LatLng = { lat: number; lng: number };
 
 type Bank = {
