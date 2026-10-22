@@ -212,15 +212,15 @@ export default function SubmissionsValidationPage() {
       {/* Tabel Validasi Submission */}
       <div className="bg-white rounded-2xl border border-[#d7e6dd] overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-[#1d3b2f]">
+          <table className="w-full min-w-[640px] text-left text-xs text-[#1d3b2f]">
             <thead className="bg-[#f5faf7] text-[#6b8279] font-bold uppercase tracking-wider border-b border-[#d7e6dd]">
               <tr>
-                <th className="px-6 py-4">User</th>
-                <th className="px-6 py-4">Tutorial DIY</th>
-                <th className="px-6 py-4">Kategori</th>
-                <th className="px-6 py-4">Potensi Poin</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Aksi Kurasi</th>
+                <th className="px-4 sm:px-6 py-3.5">User</th>
+                <th className="px-4 sm:px-6 py-3.5">Tutorial DIY</th>
+                <th className="px-4 sm:px-6 py-3.5">Kategori</th>
+                <th className="px-4 sm:px-6 py-3.5">Potensi Poin</th>
+                <th className="px-4 sm:px-6 py-3.5">Status</th>
+                <th className="px-4 sm:px-6 py-3.5 text-right">Aksi Kurasi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#d7e6dd]">
@@ -228,9 +228,9 @@ export default function SubmissionsValidationPage() {
                 filteredSubmissions.map(item => (
                   <tr key={item.id} className="hover:bg-[#f5faf7]/60 transition-all">
                     {/* User */}
-                    <td className="px-6 py-4 font-bold">
+                    <td className="px-4 sm:px-6 py-4 font-bold">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-[#e1f3e9] text-[#0b4d36] font-bold text-xs flex items-center justify-center border border-[#d7e6dd]">
+                        <div className="w-8 h-8 rounded-full bg-[#e1f3e9] text-[#0b4d36] font-bold text-xs flex items-center justify-center border border-[#d7e6dd] shrink-0">
                           {item.userAvatar}
                         </div>
                         <div>
@@ -240,24 +240,24 @@ export default function SubmissionsValidationPage() {
                     </td>
 
                     {/* Tutorial Title */}
-                    <td className="px-6 py-4 font-medium max-w-xs">
+                    <td className="px-4 sm:px-6 py-4 font-medium max-w-xs">
                       <p className="truncate font-semibold text-[#1d3b2f]">{item.guideTitle}</p>
                     </td>
 
                     {/* Category */}
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       <span className="bg-[#e1f3e9] text-[#0b4d36] font-bold text-[10px] px-2.5 py-1 rounded-md">
                         {item.category}
                       </span>
                     </td>
 
                     {/* Points */}
-                    <td className="px-6 py-4 font-extrabold text-[#1f8a5b]">
+                    <td className="px-4 sm:px-6 py-4 font-extrabold text-[#1f8a5b]">
                       +{item.points} Pts
                     </td>
 
                     {/* Status Badge */}
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       {item.status === 'pending' && (
                         <span className="bg-[#fdecc4] text-[#8a5a00] font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
                           <Clock className="w-3 h-3" /> Pending
@@ -276,17 +276,17 @@ export default function SubmissionsValidationPage() {
                     </td>
 
                     {/* Action Buttons */}
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 sm:px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => {
                             setSelectedSubmission(item);
                             setIsRejecting(false);
                           }}
-                          className="px-3 py-1.5 bg-[#f5faf7] hover:bg-[#e1f3e9] text-[#0b4d36] border border-[#d7e6dd] rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                          className="px-3 py-1.5 bg-[#0b4d36] hover:bg-[#0a3f2d] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          <span></span>
+                          <span>Tinjau</span>
                         </button>
                       </div>
                     </td>
@@ -306,12 +306,12 @@ export default function SubmissionsValidationPage() {
 
       {/* Modal Popup Tinjau Karya & Foto Bukti */}
       {selectedSubmission && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-[#d7e6dd] max-w-2xl w-full p-6 space-y-6 shadow-2xl my-8">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#d7e6dd] max-w-2xl w-full p-4 sm:p-6 space-y-4 sm:space-y-6 shadow-2xl my-4 sm:my-8 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="flex justify-between items-start border-b border-[#d7e6dd] pb-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
+            <div className="flex justify-between items-start border-b border-[#d7e6dd] pb-3 sm:pb-4 gap-2">
+              <div className="space-y-1 pr-2">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
                   <span className="bg-[#e1f3e9] text-[#0b4d36] text-[10px] font-bold px-2.5 py-0.5 rounded-md">
                     {selectedSubmission.category}
                   </span>
@@ -319,7 +319,7 @@ export default function SubmissionsValidationPage() {
                     Est. Reward: +{selectedSubmission.points} Pts
                   </span>
                 </div>
-                <h2 className="text-lg font-serif font-bold text-[#1d3b2f]">
+                <h2 className="text-base sm:text-lg font-serif font-bold text-[#1d3b2f]">
                   {selectedSubmission.guideTitle}
                 </h2>
                 <p className="text-xs text-[#6b8279]">
@@ -329,7 +329,7 @@ export default function SubmissionsValidationPage() {
 
               <button
                 onClick={() => setSelectedSubmission(null)}
-                className="p-1.5 text-[#6b8279] hover:bg-[#f5faf7] rounded-xl cursor-pointer"
+                className="p-1.5 text-[#6b8279] hover:bg-[#f5faf7] rounded-xl cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -338,7 +338,7 @@ export default function SubmissionsValidationPage() {
             {/* Visual Foto Bukti Karya */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-[#1d3b2f]">Foto Bukti Karya User:</label>
-              <div className="relative h-64 w-full rounded-2xl overflow-hidden bg-[#e1f3e9] border border-[#d7e6dd]">
+              <div className="relative h-48 sm:h-64 w-full rounded-xl sm:rounded-2xl overflow-hidden bg-[#e1f3e9] border border-[#d7e6dd]">
                 <img
                   src={selectedSubmission.proofImage}
                   alt="Foto Bukti Karya"
@@ -348,7 +348,7 @@ export default function SubmissionsValidationPage() {
             </div>
 
             {/* Catatan User */}
-            <div className="p-4 bg-[#f5faf7] rounded-2xl border border-[#d7e6dd] space-y-1">
+            <div className="p-3.5 sm:p-4 bg-[#f5faf7] rounded-xl sm:rounded-2xl border border-[#d7e6dd] space-y-1">
               <span className="text-[10px] font-bold text-[#6b8279] uppercase tracking-wider flex items-center gap-1">
                 <FileText className="w-3 h-3" /> Catatan dari Pengunggah:
               </span>
@@ -359,7 +359,7 @@ export default function SubmissionsValidationPage() {
 
             {/* Status Info / Form Alasan Penolakan */}
             {selectedSubmission.status === 'rejected' && selectedSubmission.rejectionReason && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs space-y-1">
+              <div className="p-3.5 sm:p-4 bg-red-50 border border-red-200 rounded-xl sm:rounded-2xl text-xs space-y-1">
                 <span className="font-bold text-red-700 flex items-center gap-1">
                   <AlertCircle className="w-4 h-4" /> Alasan Penolakan Sebelumnya:
                 </span>
@@ -368,7 +368,7 @@ export default function SubmissionsValidationPage() {
             )}
 
             {isRejecting && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-2 animate-in fade-in duration-150">
+              <div className="p-3.5 sm:p-4 bg-red-50 border border-red-200 rounded-xl sm:rounded-2xl space-y-2 animate-in fade-in duration-150">
                 <label className="block text-xs font-bold text-red-700">
                   Tuliskan Alasan Penolakan (akan dikirimkan ke user):
                 </label>
@@ -379,16 +379,16 @@ export default function SubmissionsValidationPage() {
                   onChange={e => setRejectReasonInput(e.target.value)}
                   className="w-full bg-white border border-red-200 rounded-xl p-3 text-xs text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-1">
                   <button
                     onClick={() => setIsRejecting(false)}
-                    className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-bold text-red-700 hover:bg-red-100 cursor-pointer"
+                    className="w-full sm:w-auto px-3 py-1.5 rounded-lg border border-red-200 text-xs font-bold text-red-700 hover:bg-red-100 cursor-pointer text-center"
                   >
                     Batal
                   </button>
                   <button
                     onClick={() => handleReject(selectedSubmission.id)}
-                    className="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer"
+                    className="w-full sm:w-auto px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer text-center"
                   >
                     Konfirmasi Tolak
                   </button>
@@ -397,23 +397,23 @@ export default function SubmissionsValidationPage() {
             )}
 
             {/* Modal Actions */}
-            <div className="pt-4 border-t border-[#d7e6dd] flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div className="pt-3 sm:pt-4 border-t border-[#d7e6dd] flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
               <span className="text-xs text-[#6b8279]">
                 Status saat ini:{' '}
                 <strong className="uppercase text-[#0b4d36]">{selectedSubmission.status}</strong>
               </span>
 
               {selectedSubmission.status === 'pending' && !isRejecting && (
-                <div className="flex gap-2 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => setIsRejecting(true)}
-                    className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   >
                     <X className="w-4 h-4" /> Tolak Karya
                   </button>
                   <button
                     onClick={() => handleApprove(selectedSubmission.id)}
-                    className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-[#0b4d36] hover:bg-[#0a3f2d] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0b4d36] hover:bg-[#0a3f2d] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
                   >
                     <Check className="w-4 h-4" /> Setujui (+{selectedSubmission.points} Pts)
                   </button>

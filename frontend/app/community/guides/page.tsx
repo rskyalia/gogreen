@@ -67,7 +67,7 @@ export default function DIYGuidesPage() {
       duration: '20 menit',
       inspiredCount: 128,
       status: 'Published',
-      image: '/assets/community/panduan-diy/pot.jpg',
+      image: '/panduan-diy/pot.jpg',
       materials: [
         '1 Botol plastik bekas ukuran 1.5 Liter',
         'Gunting / Cutter tajam',
@@ -92,7 +92,7 @@ export default function DIYGuidesPage() {
       duration: '25 menit',
       inspiredCount: 84,
       status: 'Published',
-      image: '/assets/community/panduan-diy/storagekardus.jpg',
+      image: '/panduan-diy/storagekardus.jpg',
       materials: [
         '1 Kardus bekas sepatu atau kardus mi instan',
         'Kertas kado bekas / Kertas koran',
@@ -115,7 +115,7 @@ export default function DIYGuidesPage() {
       duration: '45 menit',
       inspiredCount: 62,
       status: 'Published',
-      image: '/assets/community/panduan-diy/totebag.jpg',
+      image: '/panduan-diy/totebag.jpg',
       materials: [
         '1 Kaos bekas berbahan tebal',
         'Gunting kain khusus',
@@ -138,7 +138,7 @@ export default function DIYGuidesPage() {
       duration: '30 menit',
       inspiredCount: 96,
       status: 'Published',
-      image: '/assets/community/panduan-diy/tempatpensil.jpg',
+      image: '/panduan-diy/tempatpensil.jpg',
       materials: [
         '1 Kaleng bekas minuman aluminium',
         'Pembuka kaleng & Amplas halus',
@@ -161,7 +161,7 @@ export default function DIYGuidesPage() {
       duration: '15 menit',
       inspiredCount: 214,
       status: 'Published',
-      image: '/assets/community/panduan-diy/pupukorganik.jpg',
+      image: '/panduan-diy/pupukorganik.jpg',
       materials: [
         'Sampah organik dapur (kulit buah, sisa sayur)',
         'Dedaunan kering / Serbuk gergaji',
@@ -235,7 +235,7 @@ export default function DIYGuidesPage() {
 
     const finalImage = formData.imagePath.trim() !== '' 
       ? formData.imagePath.trim() 
-      : 'https://images.unsplash.com/photo-1528323273322-d81458248d40?auto=format&fit=crop&q=80&w=400';
+      : '/panduan-diy/pot.jpg';
 
     const newGuide: Guide = {
       id: Date.now(),
@@ -277,15 +277,15 @@ export default function DIYGuidesPage() {
   return (
     <div className="space-y-8 font-sans text-[#1d3b2f]">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <span className="text-[11px] font-bold text-[#1f8a5b] tracking-widest uppercase flex items-center gap-1.5">
+          <span className="text-[10px] sm:text-[11px] font-bold text-[#1f8a5b] tracking-widest uppercase flex items-center gap-1.5">
             <BookOpen className="w-3.5 h-3.5" /> KATALOG KREATIF KOMUNITAS
           </span>
-          <h1 className="text-3xl font-serif font-bold text-[#1d3b2f] mt-0.5">
+          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1d3b2f] mt-0.5">
             Panduan & Tutorial DIY
           </h1>
-          <p className="text-xs text-[#6b8279] mt-1">
+          <p className="text-xs text-[#6b8279] mt-1 max-w-xl">
             Klik kategori sampah di bawah untuk memfilter tutorial, lihat langkah pengerjaan, atau buat tutorial baru.
           </p>
         </div>
@@ -299,7 +299,7 @@ export default function DIYGuidesPage() {
             });
             setIsCreateModalOpen(true);
           }}
-          className="bg-[#0b4d36] hover:bg-[#0a3f2d] text-white text-xs font-bold px-4 py-3 rounded-xl flex items-center gap-2 transition-all shadow-md shrink-0 cursor-pointer"
+          className="bg-[#0b4d36] hover:bg-[#0a3f2d] text-white text-xs font-bold px-4 py-2.5 sm:py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shrink-0 cursor-pointer w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Tambah Tutorial DIY</span>
@@ -386,17 +386,20 @@ export default function DIYGuidesPage() {
 
       {/* Grid Tutorial DIY */}
       {filteredGuides.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredGuides.map((guide) => (
             <div
               key={guide.id}
               className="bg-white rounded-2xl border border-[#d7e6dd] overflow-hidden flex flex-col justify-between hover:shadow-lg transition-all duration-200 group"
             >
               <div>
-                <div className="relative h-44 w-full overflow-hidden bg-[#e1f3e9]">
+                <div className="relative h-44 sm:h-48 w-full overflow-hidden bg-[#e1f3e9]">
                   <img
                     src={guide.image}
                     alt={guide.title}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/panduan-diy/pot.jpg';
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
                   />
                   <div className="absolute top-3 left-3 flex gap-1.5">
@@ -411,12 +414,12 @@ export default function DIYGuidesPage() {
                   </div>
                 </div>
 
-                <div className="p-5 space-y-3">
+                <div className="p-4 sm:p-5 space-y-3">
                   <h3 className="font-serif font-bold text-sm text-[#1d3b2f] line-clamp-2 leading-snug">
                     {guide.title}
                   </h3>
 
-                  <div className="flex items-center gap-3 text-[10px] text-[#6b8279] pt-1 border-t border-[#f5faf7]">
+                  <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-[10px] text-[#6b8279] pt-1 border-t border-[#f5faf7]">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5 text-[#1f8a5b]" /> {guide.duration}
                     </span>
@@ -430,7 +433,7 @@ export default function DIYGuidesPage() {
                 </div>
               </div>
 
-              <div className="p-4 border-t border-[#d7e6dd] bg-[#f5faf7] flex items-center justify-between gap-2">
+              <div className="p-3.5 sm:p-4 border-t border-[#d7e6dd] bg-[#f5faf7] flex items-center justify-between gap-2">
                 <button
                   type="button"
                   onClick={() => handleOpenDetailModal(guide)}
@@ -443,7 +446,7 @@ export default function DIYGuidesPage() {
                 <button
                   type="button"
                   onClick={() => handleDeleteGuide(guide.id)}
-                  className="p-2 text-red-600 hover:bg-red-50 border border-red-200 rounded-xl transition-all cursor-pointer"
+                  className="p-2 text-red-600 hover:bg-red-50 border border-red-200 rounded-xl transition-all cursor-pointer shrink-0"
                   title="Hapus Tutorial"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -482,11 +485,11 @@ export default function DIYGuidesPage() {
 
       {/* Modal Detail Step-by-Step */}
       {selectedDetailGuide && (
-        <div className="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-[#d7e6dd] max-w-2xl w-full p-6 space-y-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start border-b border-[#d7e6dd] pb-4">
-              <div className="space-y-1 pr-4">
-                <div className="flex items-center gap-2">
+        <div className="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#d7e6dd] max-w-2xl w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl my-4 sm:my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start border-b border-[#d7e6dd] pb-3 sm:pb-4 gap-2">
+              <div className="space-y-1 pr-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="bg-[#cfeedd] text-[#0b4d36] text-[10px] font-bold px-2.5 py-0.5 rounded-md">
                     {selectedDetailGuide.category}
                   </span>
@@ -497,21 +500,41 @@ export default function DIYGuidesPage() {
                     +{selectedDetailGuide.points} Poin Reward
                   </span>
                 </div>
-                <h2 className="text-xl font-serif font-bold text-[#1d3b2f]">
+                <h2 className="text-lg sm:text-xl font-serif font-bold text-[#1d3b2f]">
                   {selectedDetailGuide.title}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedDetailGuide(null)}
-                className="p-1.5 text-[#6b8279] hover:bg-[#f5faf7] rounded-xl cursor-pointer"
+                className="p-1.5 text-[#6b8279] hover:bg-[#f5faf7] rounded-xl cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
+            {/* Foto Sampul Tutorial */}
+            {selectedDetailGuide.image && (
+              <div className="relative h-44 sm:h-56 w-full rounded-xl sm:rounded-2xl overflow-hidden bg-[#e1f3e9] border border-[#d7e6dd] shadow-2xs">
+                <img
+                  src={selectedDetailGuide.image}
+                  alt={selectedDetailGuide.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/panduan-diy/pot.jpg';
+                  }}
+                />
+                <div className="absolute top-3 left-3 bg-[#0b4d36]/90 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-md">
+                  {selectedDetailGuide.category}
+                </div>
+                <div className="absolute top-3 right-3 bg-white/95 text-[#0b4d36] text-[10px] font-bold px-2.5 py-1 rounded-md shadow-xs">
+                  +{selectedDetailGuide.points} Pts Reward
+                </div>
+              </div>
+            )}
+
             {/* Alat & Bahan */}
-            <div className="space-y-3 bg-[#f5faf7] p-4 rounded-2xl border border-[#d7e6dd]">
+            <div className="space-y-3 bg-[#f5faf7] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-[#d7e6dd]">
               <h3 className="text-xs font-bold text-[#0b4d36] uppercase tracking-wider flex items-center gap-2">
                 <Scissors className="w-4 h-4" /> Alat & Bahan Yang Dibutuhkan:
               </h3>
@@ -604,11 +627,11 @@ export default function DIYGuidesPage() {
 
       {/* Modal Form Tambah Tutorial */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-[#d7e6dd] max-w-lg w-full p-6 space-y-5 shadow-2xl my-8">
+        <div className="fixed inset-0 z-100 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#d7e6dd] max-w-lg w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl my-4 sm:my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-[#d7e6dd] pb-3">
               <div>
-                <h2 className="text-lg font-serif font-bold text-[#1d3b2f]">
+                <h2 className="text-base sm:text-lg font-serif font-bold text-[#1d3b2f]">
                   Tambah Tutorial DIY Baru
                 </h2>
                 <p className="text-xs text-[#6b8279]">
@@ -624,7 +647,7 @@ export default function DIYGuidesPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateGuide} className="space-y-4 text-xs">
+            <form onSubmit={handleCreateGuide} className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-bold text-[#1d3b2f] mb-1">Judul Tutorial</label>
                 <input
@@ -641,14 +664,14 @@ export default function DIYGuidesPage() {
                 <label className="block font-bold text-[#1d3b2f] mb-1">Path/URL Gambar Sampul (Opsional)</label>
                 <input
                   type="text"
-                  placeholder="Contoh: /assets/community/panduan-diy/namafile.jpg"
+                  placeholder="Contoh: /panduan-diy/pot.jpg atau https://..."
                   value={formData.imagePath}
                   onChange={(e) => setFormData({ ...formData, imagePath: e.target.value })}
                   className="w-full bg-[#f5faf7] border border-[#d7e6dd] rounded-xl px-3.5 py-2.5 text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-[#1f8a5b]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-[#1d3b2f] mb-1">Kategori Jenis Sampah</label>
                   <select
@@ -729,17 +752,17 @@ export default function DIYGuidesPage() {
                 />
               </div>
 
-              <div className="pt-3 border-t border-[#d7e6dd] flex justify-end gap-2">
+              <div className="pt-3 border-t border-[#d7e6dd] flex flex-col-reverse sm:flex-row justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-[#d7e6dd] text-[#6b8279] hover:bg-[#f5faf7] font-bold cursor-pointer"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-[#d7e6dd] text-[#6b8279] hover:bg-[#f5faf7] font-bold cursor-pointer text-center"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0b4d36] hover:bg-[#0a3f2d] text-white font-bold transition-all shadow-md cursor-pointer"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0b4d36] hover:bg-[#0a3f2d] text-white font-bold transition-all shadow-md cursor-pointer text-center"
                 >
                   Simpan & Publikasikan
                 </button>
