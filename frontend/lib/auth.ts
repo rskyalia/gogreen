@@ -139,6 +139,22 @@ export async function fetchMe(): Promise<AuthUser> {
   return res.user;
 }
 
+/** Ambil URL redirect Google OAuth dari backend */
+export async function getGoogleRedirectUrl(): Promise<string> {
+  const res = await api.get<{ url: string }>('/auth/google/redirect');
+  return res.url;
+}
+
+/**
+ * Selesaikan login Google setelah callback.
+ * Dipanggil dari halaman /auth/google/callback dengan token & user
+ * yang diteruskan backend sebagai query-string.
+ */
+export function loginWithGoogle(token: string, user: AuthUser): void {
+  setToken(token);
+  saveUser(user);
+}
+
 // ── User cache (localStorage + cookie) ───────────────────────────────────
 
 const USER_KEY = 'gg_user';

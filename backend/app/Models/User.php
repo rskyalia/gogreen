@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,6 +21,7 @@ class User extends Authenticatable
         'role',
         'phone',
         'avatar',
+        'google_id',
         'member_code',
         'points_balance',
         'status',
