@@ -20,15 +20,15 @@ import { useAuth } from '@/context/AuthContext';
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface StatsData {
-  deposits_today:    number;
-  total_kg_today:    number;
+  deposits_today: number;
+  total_kg_today: number;
   unique_depositors: number;
   per_category: Array<{
-    category_id:   number;
+    category_id: number;
     category_name: string;
     category_slug: string;
-    total_kg:      number;
-    total_points:  number;
+    total_kg: number;
+    total_points: number;
   }>;
   range_days: number;
 }
@@ -120,8 +120,8 @@ export default function WasteBankDashboardPage() {
   const router = useRouter();
   const wb = user?.waste_bank;
 
-  const [stats, setStats]             = useState<StatsData | null>(null);
-  const [range, setRange]             = useState<7 | 30>(7);
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [range, setRange] = useState<7 | 30>(7);
   const [loadingStats, setLoadingStats] = useState(true);
 
   const loadStats = useCallback(async (r: 7 | 30) => {
@@ -281,9 +281,9 @@ export default function WasteBankDashboardPage() {
           <><SkeletonStatCard /><SkeletonStatCard /><SkeletonStatCard /></>
         ) : (
           <>
-            <StatCard icon={ArrowDownToLine} label="Setoran Hari Ini"   value={stats?.deposits_today ?? 0}                        unit="setoran" tone="bg-mint text-forest"    />
-            <StatCard icon={Scale}           label="Total Berat Hari Ini" value={stats ? Number(stats.total_kg_today).toFixed(1) : '0'} unit="kg"      tone="bg-forest text-mint"   />
-            <StatCard icon={Users}           label="Penyetor Unik"      value={stats?.unique_depositors ?? 0}                     unit="orang"   tone="bg-sun text-sun-ink"   />
+            <StatCard icon={ArrowDownToLine} label="Setoran Hari Ini" value={stats?.deposits_today ?? 0} unit="setoran" tone="bg-mint text-forest" />
+            <StatCard icon={Scale} label="Total Berat Hari Ini" value={stats ? Number(stats.total_kg_today).toFixed(1) : '0'} unit="kg" tone="bg-forest text-mint" />
+            <StatCard icon={Users} label="Penyetor Unik" value={stats?.unique_depositors ?? 0} unit="orang" tone="bg-sun text-sun-ink" />
           </>
         )}
       </div>
@@ -343,10 +343,10 @@ export default function WasteBankDashboardPage() {
       <section>
         <h2 className="mb-3 font-serif text-xl font-medium text-forest">Akses Cepat</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <QuickLink href="/waste-bank/deposits/new"      label="Input Setoran Baru"  description="Catat setoran sampah dari anggota"   icon={ArrowDownToLine} tone="bg-mint text-forest"  />
-          <QuickLink href="/waste-bank/deposits"           label="Lihat Rekapan"        description="Riwayat semua setoran"              icon={ClipboardList}   tone="bg-forest text-mint"  />
-          <QuickLink href="/waste-bank/material-requests" label="Request Bahan"         description="Ajukan kebutuhan material daur ulang" icon={Package}         tone="bg-sun text-sun-ink"  />
-          <QuickLink href="/waste-bank/profile"            label="Edit Profil"           description="Perbarui data bank sampah Anda"     icon={Sprout}          tone="bg-mist text-leaf"    />
+          <QuickLink href="/waste-bank/deposits/new" label="Input Setoran Baru" description="Catat setoran sampah dari anggota" icon={ArrowDownToLine} tone="bg-mint text-forest" />
+          <QuickLink href="/waste-bank/deposits" label="Lihat Rekapan" description="Riwayat semua setoran" icon={ClipboardList} tone="bg-forest text-mint" />
+          <QuickLink href="/waste-bank/material-requests" label="Request Bahan" description="Ajukan kebutuhan material daur ulang" icon={Package} tone="bg-sun text-sun-ink" />
+          <QuickLink href="/waste-bank/profile" label="Edit Profil" description="Perbarui data bank sampah Anda" icon={Sprout} tone="bg-mist text-leaf" />
         </div>
       </section>
 

@@ -1,34 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
     LayoutDashboard,
     Leaf,
     LogOut,
-    Recycle,
     ScanLine,
     TrendingUp,
     Users,
     type LucideIcon,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import OverviewView from "./overviewView";
 import ScanView from "./scanview";
 import DiyView from "./DIYview";
 import ImpactView from "./impactview";
-import SetoranView from "./SetoranView";
 
-export type View = "dashboard" | "scan" | "komunitas" | "dampak" | "setoran";
+export type View = "dashboard" | "scan" | "komunitas" | "dampak";
 
 const nav: { key: View; label: string; Icon: LucideIcon }[] = [
     { key: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
     { key: "scan", label: "Scan Sampah", Icon: ScanLine },
-    { key: "setoran", label: "Setor Sampah", Icon: Recycle },
     { key: "komunitas", label: "Komunitas DIY", Icon: Users },
     { key: "dampak", label: "Dampak Saya", Icon: TrendingUp },
 ];
-
-const DUMMY_NAME = "Sinta Pratama";
 
 function Logo() {
     return (
@@ -36,7 +33,7 @@ function Logo() {
             <span className="grid size-9 place-items-center rounded-full bg-forest text-mint">
                 <Leaf className="size-5" aria-hidden />
             </span>
-            <span className="font-serif text-lg font-semibold leading-5 text-forest">
+            <span className="font-serif text-base font-semibold leading-tight text-forest">
                 Go Green Innovation
             </span>
         </Link>
@@ -44,8 +41,14 @@ function Logo() {
 }
 
 export default function DashboardShell() {
+    const router = useRouter();
+    const { user, isLoading, logout } = useAuth();
     const [view, setView] = useState<View>("dashboard");
     const [diyId, setDiyId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isLoading && !user) router.replace("/login");
+    }, [isLoading, user, router]);
 
     const go = (v: View) => {
         setDiyId(null);
@@ -53,12 +56,29 @@ export default function DashboardShell() {
         window.scrollTo({ top: 0 });
     };
 
-    // dari hasil scan langsung ke tutorial tertentu di Komunitas DIY
     const openTutorial = (id: string) => {
         setDiyId(id);
         setView("komunitas");
         window.scrollTo({ top: 0 });
     };
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+        } catch {
+            router.push("/login");
+        }
+    };
+
+    if (isLoading || !user) {
+        return (
+            <div className="grid min-h-screen place-items-center bg-paper text-sm text-muted">
+                Memuat...
+            </div>
+        );
+    }
+
+    const name = user.name;
 
     return (
         <div className="min-h-screen bg-paper lg:grid lg:grid-cols-[256px_minmax(0,1fr)]">
@@ -84,32 +104,30 @@ export default function DashboardShell() {
                 </nav>
 
                 <div className="mt-auto rounded-2xl bg-mist p-4">
-                    <p className="truncate font-semibold text-ink">{DUMMY_NAME}</p>
+                    <p className="truncate font-semibold text-ink">{name}</p>
                     <p className="text-xs text-muted">Level Visionary</p>
-                    <Link
-                        href="/"
+                    <button
+                        type="button"
+                        onClick={handleLogout}
                         className="mt-3 flex items-center gap-2 text-sm font-semibold text-forest"
                     >
                         <LogOut className="size-4" aria-hidden />
                         Keluar
-                    </Link>
+                    </button>
                 </div>
             </aside>
 
             <div className="min-w-0">
                 <header className="flex h-14 items-center justify-between border-b border-line bg-white px-5 lg:hidden">
                     <Logo />
-                    <Link href="/" aria-label="Keluar" className="p-2 text-forest">
+                    <button type="button" onClick={handleLogout} aria-label="Keluar" className="p-2 text-forest">
                         <LogOut className="size-5" aria-hidden />
-                    </Link>
+                    </button>
                 </header>
 
                 <main className="mx-auto w-full max-w-[1600px] p-5 pb-28 sm:p-8 lg:px-10 lg:py-8 lg:pb-10">
-                    {view === "dashboard" && (
-                        <OverviewView name={DUMMY_NAME.split(" ")[0]} onScan={() => go("scan")} />
-                    )}
+                    {view === "dashboard" && <OverviewView name={name.split(" ")[0]} onScan={() => go("scan")} />}
                     {view === "scan" && <ScanView onOpenTutorial={openTutorial} />}
-                    {view === "setoran" && <SetoranView />}
                     {view === "komunitas" && <DiyView initialId={diyId} />}
                     {view === "dampak" && <ImpactView />}
                 </main>

@@ -1,91 +1,62 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-    AdvancedMarker,
-    APIProvider,
-    Map,
-    Pin,
-    useMap,
-    useMapsLibrary,
-} from "@vis.gl/react-google-maps";
+import { AdvancedMarker, APIProvider, Map, Pin, useMap } from "@vis.gl/react-google-maps";
 import { LocateFixed, MapPin } from "lucide-react";
+import { api } from "@/lib/api";
 
 type LatLng = { lat: number; lng: number };
 
+// bentuk data dari GET /api/user/waste-banks (WasteBankSearchController)
 type Bank = {
-    id: string;
+    id: number;
     name: string;
     address: string;
-    position: LatLng;
-    distanceKm: number;
-    mapsUrl?: string;
+    latitude: number;
+    longitude: number;
+    is_open: boolean;
+    is_open_now: boolean;
+    today_hours: string | null;
+    distance_km: number | null; // null kalau lokasi user belum dikirim
+    accepted_categories: { id: number; name: string; slug: string; icon: string | null }[];
 };
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID ?? "DEMO_MAP_ID";
 
-const FALLBACK: LatLng = { lat: -6.2088, lng: 106.8456 };
-const FALLBACK_LABEL = "Jakarta";
-
-function distanceKm(a: LatLng, b: LatLng) {
-    const R = 6371;
-    const rad = (d: number) => (d * Math.PI) / 180;
-    const dLat = rad(b.lat - a.lat);
-    const dLng = rad(b.lng - a.lng);
-    const h =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(h));
-}
+const FALLBACK: LatLng = { lat: -6.2088, lng: 106.8456 }; // titik tengah awal peta
+const RADIUS_KM = 20;
 
 const formatKm = (km: number) =>
     `${km.toLocaleString("id-ID", { maximumFractionDigits: 1 })} km`;
 
 function Finder() {
     const map = useMap();
-    const placesLib = useMapsLibrary("places");
 
-    const [origin, setOrigin] = useState<LatLng>(FALLBACK);
-    const [located, setLocated] = useState(false);
+    const [origin, setOrigin] = useState<LatLng | null>(null); // lokasi user (setelah diizinkan)
     const [geoMessage, setGeoMessage] = useState<string | null>(null);
     const [banks, setBanks] = useState<Bank[]>([]);
-    const [activeId, setActiveId] = useState<string | null>(null);
+    const [activeId, setActiveId] = useState<number | null>(null);
     const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
+    // ambil data dari backend: semua bank terverifikasi, atau yang terdekat bila ada lokasi
     useEffect(() => {
-        if (!placesLib) return;
         let cancelled = false;
         setStatus("loading");
 
-        placesLib.Place.searchByText({
-            textQuery: "bank sampah",
-            fields: ["id", "displayName", "formattedAddress", "location", "googleMapsURI"],
-            locationBias: origin,
-            maxResultCount: 5,
-            language: "id",
-            region: "id",
-        })
-            .then(({ places }) => {
+        const params = new URLSearchParams({ per_page: "20" });
+        if (origin) {
+            params.set("lat", String(origin.lat));
+            params.set("lng", String(origin.lng));
+            params.set("radius_km", String(RADIUS_KM));
+        }
+
+        api
+            .get<{ data: Bank[] }>(`/user/waste-banks?${params.toString()}`)
+            .then(({ data }) => {
                 if (cancelled) return;
-                const list: Bank[] = places
-                    .flatMap((p) => {
-                        if (!p.id || !p.location) return [];
-                        const position = { lat: p.location.lat(), lng: p.location.lng() };
-                        return [
-                            {
-                                id: p.id,
-                                name: p.displayName ?? "Bank sampah",
-                                address: p.formattedAddress ?? "",
-                                position,
-                                distanceKm: distanceKm(origin, position),
-                                mapsUrl: p.googleMapsURI ?? undefined,
-                            },
-                        ];
-                    })
-                    .sort((a, b) => a.distanceKm - b.distanceKm);
-                setBanks(list);
-                setActiveId(list[0]?.id ?? null);
+                setBanks(data);
+                setActiveId(data[0]?.id ?? null);
                 setStatus("ready");
             })
             .catch(() => {
@@ -95,23 +66,24 @@ function Finder() {
         return () => {
             cancelled = true;
         };
-    }, [placesLib, origin]);
+    }, [origin]);
 
     useEffect(() => {
         if (!map) return;
         if (banks.length === 0) {
-            map.panTo(origin);
+            map.panTo(origin ?? FALLBACK);
             return;
         }
-        const bounds = new google.maps.LatLngBounds(origin);
-        banks.forEach((b) => bounds.extend(b.position));
+        const bounds = new google.maps.LatLngBounds();
+        banks.forEach((b) => bounds.extend({ lat: b.latitude, lng: b.longitude }));
+        if (origin) bounds.extend(origin);
         map.fitBounds(bounds, 56);
     }, [map, banks, origin]);
 
     const select = useCallback(
         (bank: Bank) => {
             setActiveId(bank.id);
-            map?.panTo(bank.position);
+            map?.panTo({ lat: bank.latitude, lng: bank.longitude });
         },
         [map],
     );
@@ -124,10 +96,9 @@ function Finder() {
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 setOrigin({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                setLocated(true);
                 setGeoMessage(null);
             },
-            () => setGeoMessage("Izin lokasi ditolak, jadi yang tampil masih area contoh."),
+            () => setGeoMessage("Izin lokasi ditolak, jadi daftar belum diurutkan dari yang terdekat."),
             { timeout: 10000 },
         );
     };
@@ -139,9 +110,9 @@ function Finder() {
                     <h2 className="font-serif text-xl font-medium text-forest">Bank sampah terdekat</h2>
                     <p className="mt-1 text-sm text-muted">
                         {geoMessage ??
-                            (located
-                                ? "Diurutkan dari yang paling dekat dengan lokasimu."
-                                : `Menampilkan area contoh (${FALLBACK_LABEL}). Aktifkan lokasi untuk hasil di dekatmu.`)}
+                            (origin
+                                ? `Bank sampah terverifikasi dalam radius ${RADIUS_KM} km, diurutkan dari yang paling dekat.`
+                                : "Menampilkan bank sampah terverifikasi. Aktifkan lokasi untuk mengurutkan dari yang terdekat.")}
                     </p>
                 </div>
                 <button
@@ -154,14 +125,18 @@ function Finder() {
                 </button>
             </div>
 
-            <div className="mt-5 grid gap-5 lg:grid-cols-[300px_1fr]">
-                <ul className="space-y-2.5" aria-live="polite">
+            <div className="mt-5 grid gap-5 lg:grid-cols-[320px_1fr]">
+                <ul className="max-h-[380px] space-y-2.5 overflow-y-auto pr-1" aria-live="polite">
                     {status === "loading" && <li className="text-sm text-muted">Mencari bank sampah...</li>}
                     {status === "error" && (
                         <li className="text-sm text-muted">Data bank sampah gagal dimuat. Coba muat ulang halaman.</li>
                     )}
                     {status === "ready" && banks.length === 0 && (
-                        <li className="text-sm text-muted">Belum ada bank sampah yang ditemukan di sekitar sini.</li>
+                        <li className="text-sm text-muted">
+                            {origin
+                                ? `Belum ada bank sampah terverifikasi dalam radius ${RADIUS_KM} km dari lokasimu.`
+                                : "Belum ada bank sampah terverifikasi."}
+                        </li>
                     )}
                     {status === "ready" &&
                         banks.map((b) => {
@@ -179,22 +154,44 @@ function Finder() {
                                         className="flex w-full items-center gap-3 px-4 py-3 text-left"
                                     >
                                         <MapPin className={`size-5 shrink-0 ${on ? "text-forest" : "text-leaf"}`} aria-hidden />
-                                        <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-ink">{b.name}</span>
-                                        <span className="shrink-0 text-sm font-medium text-forest">{formatKm(b.distanceKm)}</span>
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block text-sm font-semibold leading-snug text-ink">{b.name}</span>
+                                            <span
+                                                className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${b.is_open_now ? "bg-mint text-forest" : "bg-mist text-muted"
+                                                    }`}
+                                            >
+                                                {b.is_open_now ? "Buka sekarang" : "Tutup"}
+                                            </span>
+                                        </span>
+                                        {b.distance_km !== null && (
+                                            <span className="shrink-0 text-sm font-medium text-forest">{formatKm(b.distance_km)}</span>
+                                        )}
                                     </button>
+
                                     {on && (
-                                        <div className="px-4 pb-3 pl-12 text-xs leading-relaxed text-muted">
-                                            {b.address}
-                                            {b.mapsUrl && (
-                                                <a
-                                                    href={b.mapsUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="mt-1.5 block font-semibold text-forest underline underline-offset-4"
-                                                >
-                                                    Buka di Google Maps
-                                                </a>
+                                        <div className="space-y-2 px-4 pb-3 pl-12 text-xs leading-relaxed text-muted">
+                                            <p>{b.address}</p>
+                                            <p>
+                                                Hari ini:{" "}
+                                                <span className="font-medium text-ink">{b.today_hours ?? "Jam belum diatur"}</span>
+                                            </p>
+                                            {b.accepted_categories.length > 0 && (
+                                                <ul className="flex flex-wrap gap-1.5">
+                                                    {b.accepted_categories.map((c) => (
+                                                        <li key={c.id} className="rounded-full bg-white px-2.5 py-1 font-medium text-forest">
+                                                            {c.name}
+                                                        </li>
+                                                    ))}
+                                                </ul>
                                             )}
+                                            <a
+                                                href={`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-block font-semibold text-forest underline underline-offset-4"
+                                            >
+                                                Buka rute di Google Maps
+                                            </a>
                                         </div>
                                     )}
                                 </li>
@@ -206,13 +203,13 @@ function Finder() {
                     <Map
                         mapId={MAP_ID}
                         defaultCenter={FALLBACK}
-                        defaultZoom={12}
+                        defaultZoom={11}
                         gestureHandling="cooperative"
                         streetViewControl={false}
                         mapTypeControl={false}
                         fullscreenControl={false}
                     >
-                        {located && (
+                        {origin && (
                             <AdvancedMarker position={origin} title="Lokasimu">
                                 <span className="block size-4 rounded-full border-2 border-white bg-sun-ink ring-4 ring-sun" />
                             </AdvancedMarker>
@@ -222,13 +219,13 @@ function Finder() {
                             return (
                                 <AdvancedMarker
                                     key={b.id}
-                                    position={b.position}
+                                    position={{ lat: b.latitude, lng: b.longitude }}
                                     title={b.name}
                                     zIndex={on ? 10 : 1}
                                     onClick={() => select(b)}
                                 >
                                     <Pin
-                                        background={on ? "#0b4d36" : "#1f8a5b"}
+                                        background={on ? "#0b4d36" : b.is_open_now ? "#1f8a5b" : "#6b8279"}
                                         borderColor="#0a3f2d"
                                         glyphColor="#ffffff"
                                         scale={on ? 1.3 : 1}
