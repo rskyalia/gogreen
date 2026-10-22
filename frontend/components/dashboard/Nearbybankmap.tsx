@@ -7,7 +7,6 @@ import { api } from "@/lib/api";
 
 type LatLng = { lat: number; lng: number };
 
-// bentuk data dari GET /api/user/waste-banks (WasteBankSearchController)
 type Bank = {
     id: number;
     name: string;
@@ -17,14 +16,14 @@ type Bank = {
     is_open: boolean;
     is_open_now: boolean;
     today_hours: string | null;
-    distance_km: number | null; // null kalau lokasi user belum dikirim
+    distance_km: number | null;
     accepted_categories: { id: number; name: string; slug: string; icon: string | null }[];
 };
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAP_ID ?? "DEMO_MAP_ID";
 
-const FALLBACK: LatLng = { lat: -6.2088, lng: 106.8456 }; // titik tengah awal peta
+const FALLBACK: LatLng = { lat: -6.2088, lng: 106.8456 };
 const RADIUS_KM = 20;
 
 const formatKm = (km: number) =>
@@ -33,13 +32,12 @@ const formatKm = (km: number) =>
 function Finder() {
     const map = useMap();
 
-    const [origin, setOrigin] = useState<LatLng | null>(null); // lokasi user (setelah diizinkan)
+    const [origin, setOrigin] = useState<LatLng | null>(null);
     const [geoMessage, setGeoMessage] = useState<string | null>(null);
     const [banks, setBanks] = useState<Bank[]>([]);
     const [activeId, setActiveId] = useState<number | null>(null);
     const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
-    // ambil data dari backend: semua bank terverifikasi, atau yang terdekat bila ada lokasi
     useEffect(() => {
         let cancelled = false;
         setStatus("loading");

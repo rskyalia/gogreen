@@ -19,16 +19,69 @@ type Post = {
     ratio: string;
     tone: string;
     Icon: LucideIcon;
-    image?: string; // isi path foto (mis. "/images/karya-1.jpg") kalau sudah ada
+    image?: string;
 };
 
 const posts: Post[] = [
-    { title: "Pot bunga dari galon bekas", material: "Galon", author: "Rina", likes: 124, ratio: "aspect-[4/5]", tone: "bg-mint text-forest", Icon: Flower2 },
-    { title: "Tempat pensil dari kaleng susu", material: "Kaleng", author: "Dimas", likes: 89, ratio: "aspect-square", tone: "bg-sun text-sun-ink", Icon: Pencil },
-    { title: "Rak buku dari kardus tebal", material: "Kardus", author: "Sari", likes: 76, ratio: "aspect-[3/4]", tone: "bg-forest text-mint", Icon: Library },
-    { title: "Lampu hias dari botol kaca", material: "Botol kaca", author: "Bagas", likes: 58, ratio: "aspect-square", tone: "bg-mist text-forest", Icon: Lamp },
-    { title: "Kompos dari kulit buah", material: "Organik", author: "Nadia", likes: 47, ratio: "aspect-[4/3]", tone: "bg-leaf text-white", Icon: Sprout },
-    { title: "Kebun vertikal dari botol PET", material: "Botol plastik", author: "Fajar", likes: 102, ratio: "aspect-[4/5]", tone: "bg-sun text-sun-ink", Icon: Leaf },
+    {
+        title: "Pot bunga dari galon bekas",
+        material: "Galon",
+        author: "Rina",
+        likes: 124,
+        ratio: "aspect-[4/5]",
+        tone: "bg-mint text-forest",
+        Icon: Flower2,
+        image: "/landingpage/potbunga.png"
+    }, {
+        title: "Tempat pensil dari kaleng susu",
+        material: "Kaleng",
+        author: "Dimas",
+        likes: 89,
+        ratio: "aspect-square",
+        tone: "bg-sun text-sun-ink",
+        Icon: Pencil,
+        image: "/landingpage/kalengsusu.png"
+    },
+    {
+        title: "Rak buku dari kardus tebal",
+        material: "Kardus",
+        author: "Sari",
+        likes: 76,
+        ratio: "aspect-[3/4]",
+        tone: "bg-forest text-mint",
+        Icon: Library,
+        image: "/landingpage/rakbuku.png"
+    },
+    {
+        title: "Lampu hias dari botol kaca",
+        material: "Botol kaca",
+        author: "Bagas",
+        likes: 58,
+        ratio: "aspect-square",
+        tone: "bg-mist text-forest",
+        Icon: Lamp,
+        image: "/landingpage/lampuhias.png"
+    },
+    {
+        title: "Kompos dari kulit buah",
+        material: "Organik",
+        author: "Nadia",
+        likes: 47,
+        ratio: "aspect-[4/3]",
+        tone: "bg-leaf text-white",
+        Icon: Sprout,
+        image: "/landingpage/kompos.png"
+    },
+    {
+        title: "Kebun vertikal dari botol PET",
+        material: "Botol plastik",
+        author: "Fajar",
+        likes: 102,
+        ratio: "aspect-[4/5]",
+        tone: "bg-sun text-sun-ink",
+        Icon: Leaf,
+        image: "/landingpage/kebunvertikal.png"
+    },
 ];
 
 function PostCard({ post }: { post: Post }) {
