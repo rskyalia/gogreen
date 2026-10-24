@@ -65,7 +65,7 @@ export default function UploadView({
             status: "pending",
             title: guide.title,
             category: guide.category,
-            image: URL.createObjectURL(photo), // URL terpisah dari preview supaya tidak ikut dicabut
+            image: URL.createObjectURL(photo),
             createdAt: new Date().toISOString(),
             pointsAwarded: 0,
             rewardPoints: guide.rewardPoints,
@@ -117,7 +117,7 @@ export default function UploadView({
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-leaf">Build It</p>
                 <h1 className="mt-2 font-serif text-3xl font-medium text-forest sm:text-4xl">Upload karya</h1>
                 <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
-                    Pilih tutorial yang kamu kerjakan, lalu kirim foto hasilnya. Karya divalidasi dulu sebelum poin masuk.
+                    Pilih karya yang kamu kerjakan, lalu kirim foto hasilnya. Karya divalidasi dulu sebelum poin masuk.
                 </p>
             </header>
 
@@ -151,7 +151,7 @@ export default function UploadView({
                 <section className="space-y-5">
                     <div>
                         <label htmlFor="guide" className="block text-sm font-semibold text-ink">
-                            Tutorial yang kamu kerjakan
+                            Karya yang kamu kerjakan
                         </label>
                         <select
                             id="guide"
@@ -161,7 +161,7 @@ export default function UploadView({
                             className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink disabled:opacity-60"
                         >
                             <option value="">
-                                {guidesState === "loading" ? "Memuat tutorial..." : "Pilih tutorial"}
+                                {guidesState === "loading" ? "Memuat karya..." : "Pilih karya"}
                             </option>
                             {guides.map((g) => (
                                 <option key={g.id} value={g.id}>
