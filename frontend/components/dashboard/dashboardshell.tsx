@@ -9,21 +9,25 @@ import {
     LogOut,
     ScanLine,
     TrendingUp,
+    Upload,
     Users,
     type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { SAMPLE_SUBMISSIONS, type Submission } from "@/lib/submissons";
 import OverviewView from "./overviewView";
 import ScanView from "./scanview";
 import DiyView from "./DIYview";
+import UploadView from "./SetoranView";
 import ImpactView from "./impactview";
 
-export type View = "dashboard" | "scan" | "komunitas" | "dampak";
+export type View = "dashboard" | "scan" | "komunitas" | "upload" | "dampak";
 
 const nav: { key: View; label: string; Icon: LucideIcon }[] = [
     { key: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
     { key: "scan", label: "Scan Sampah", Icon: ScanLine },
     { key: "komunitas", label: "Komunitas DIY", Icon: Users },
+    { key: "upload", label: "Upload Karya", Icon: Upload },
     { key: "dampak", label: "Dampak Saya", Icon: TrendingUp },
 ];
 
@@ -45,6 +49,8 @@ export default function DashboardShell() {
     const { user, isLoading, logout } = useAuth();
     const [view, setView] = useState<View>("dashboard");
     const [diyId, setDiyId] = useState<string | null>(null);
+    // sementara disimpan di state (hilang saat refresh) sampai ada endpoint backend
+    const [submissions, setSubmissions] = useState<Submission[]>(SAMPLE_SUBMISSIONS);
 
     useEffect(() => {
         if (!isLoading && !user) router.replace("/login");
@@ -129,13 +135,19 @@ export default function DashboardShell() {
                     {view === "dashboard" && <OverviewView name={name.split(" ")[0]} onScan={() => go("scan")} />}
                     {view === "scan" && <ScanView onOpenTutorial={openTutorial} />}
                     {view === "komunitas" && <DiyView initialId={diyId} />}
-                    {view === "dampak" && <ImpactView />}
+                    {view === "upload" && (
+                        <UploadView
+                            onSubmit={(item) => setSubmissions((prev) => [item, ...prev])}
+                            onDone={() => go("dampak")}
+                        />
+                    )}
+                    {view === "dampak" && <ImpactView submissions={submissions} onUpload={() => go("upload")} />}
                 </main>
             </div>
 
             <nav
                 aria-label="Menu dashboard"
-                className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-white/95 backdrop-blur lg:hidden"
+                className="fixed inset-x-0 bottom-0 z-30 grid grid-flow-col auto-cols-fr border-t border-line bg-white/95 backdrop-blur lg:hidden"
             >
                 {nav.map(({ key, label, Icon }) => {
                     const on = view === key;
@@ -145,7 +157,7 @@ export default function DashboardShell() {
                             type="button"
                             onClick={() => go(key)}
                             aria-current={on ? "page" : undefined}
-                            className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold ${on ? "text-forest" : "text-muted"}`}
+                            className={`flex flex-col items-center gap-1 px-0.5 py-2.5 text-center text-[10px] font-semibold leading-tight ${on ? "text-forest" : "text-muted"}`}
                         >
                             <Icon className="size-5" aria-hidden />
                             {label}
