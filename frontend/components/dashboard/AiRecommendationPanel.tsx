@@ -82,7 +82,7 @@ async function fetchFromGemini(
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!apiKey) throw new Error("NEXT_PUBLIC_GEMINI_API_KEY belum dikonfigurasi.");
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
 
     const res = await fetch(url, {
         method: "POST",
@@ -90,8 +90,7 @@ async function fetchFromGemini(
         body: JSON.stringify({
             contents: [{ parts: [{ text: buildPrompt(objectName, material, wasteType) }] }],
             generationConfig: {
-                maxOutputTokens: 2000,
-                thinkingConfig: { thinkingLevel: "low" },
+                maxOutputTokens: 1500,
             },
         }),
     });
