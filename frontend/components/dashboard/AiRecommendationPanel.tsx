@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     BookOpen,
     ChevronDown,
     ChevronUp,
     Lightbulb,
-    Loader2,
     RotateCcw,
     Sparkles,
+    Wand2,
     Wrench,
+    Zap,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -31,14 +32,18 @@ interface AiRecommendationResult {
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 const DIFFICULTY_LABEL: Record<string, { label: string; className: string }> = {
-    easy:   { label: "Mudah",   className: "bg-mint text-forest" },
-    medium: { label: "Sedang",  className: "bg-sun text-sun-ink" },
-    hard:   { label: "Sulit",   className: "bg-mist text-leaf" },
+    easy:   { label: "Mudah",  className: "bg-mint text-forest"    },
+    medium: { label: "Sedang", className: "bg-sun text-sun-ink"    },
+    hard:   { label: "Sulit",  className: "bg-mist text-leaf"      },
 };
 
 function buildPrompt(objectName: string, material: string, wasteType: string): string {
     const wasteTypeLabel =
-        wasteType === "organic" ? "organik" : wasteType === "residue" ? "residu" : "daur ulang (recyclable)";
+        wasteType === "organic"
+            ? "organik"
+            : wasteType === "residue"
+              ? "residu"
+              : "daur ulang (recyclable)";
 
     return `Kamu adalah asisten kreatif daur ulang sampah. Berikan 3 rekomendasi karya/kerajinan kreatif yang bisa dibuat dari sampah berikut:
 
@@ -75,9 +80,7 @@ async function fetchFromGemini(
     wasteType: string,
 ): Promise<AiRecommendationResult> {
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (!apiKey) {
-        throw new Error("NEXT_PUBLIC_GEMINI_API_KEY belum dikonfigurasi.");
-    }
+    if (!apiKey) throw new Error("NEXT_PUBLIC_GEMINI_API_KEY belum dikonfigurasi.");
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
@@ -87,8 +90,8 @@ async function fetchFromGemini(
         body: JSON.stringify({
             contents: [{ parts: [{ text: buildPrompt(objectName, material, wasteType) }] }],
             generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 1500,
+                maxOutputTokens: 2000,
+                thinkingConfig: { thinkingLevel: "low" },
             },
         }),
     });
@@ -100,19 +103,15 @@ async function fetchFromGemini(
     }
 
     const body = await res.json();
-    console.log("[Gemini raw response]", JSON.stringify(body, null, 2));
-
-    // Cek finish reason — safety filter atau error dari model
     const finishReason = body?.candidates?.[0]?.finishReason;
     if (finishReason && finishReason !== "STOP" && finishReason !== "MAX_TOKENS") {
         throw new Error(`AI menolak permintaan (${finishReason}). Silakan coba lagi.`);
     }
 
-    const rawText: string = body?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    console.log("[Gemini rawText]", rawText);
-
+    // Gemini 3.x punya beberapa parts: thought + text — gabungkan semuanya
+    const parts: Array<{ text?: string }> = body?.candidates?.[0]?.content?.parts ?? [];
+    const rawText: string = parts.map((p) => p.text ?? "").join("").trim();
     if (!rawText) {
-        // Tidak ada teks sama sekali — bisa jadi promptFeedback block
         const blockReason = body?.promptFeedback?.blockReason;
         throw new Error(
             blockReason
@@ -121,18 +120,13 @@ async function fetchFromGemini(
         );
     }
 
-    // Ekstrak JSON dari dalam teks — cari blok {...} pertama yang valid
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    console.log("[Gemini jsonMatch]", jsonMatch?.[0]?.slice(0, 200));
-    if (!jsonMatch) {
-        throw new Error("Respons AI tidak valid. Silakan coba lagi.");
-    }
+    if (!jsonMatch) throw new Error("Respons AI tidak valid. Silakan coba lagi.");
 
     let parsed: AiRecommendationResult;
     try {
         parsed = JSON.parse(jsonMatch[0]);
-    } catch (e) {
-        console.error("[Gemini parse error]", e, "raw:", jsonMatch[0]?.slice(0, 300));
+    } catch {
         throw new Error("Respons AI tidak valid. Silakan coba lagi.");
     }
 
@@ -146,6 +140,123 @@ async function fetchFromGemini(
     };
 }
 
+// ── Loading AI ─────────────────────────────────────────────────────────────
+
+const AI_STEPS = [
+    { icon: Zap,      text: "Menganalisis jenis sampah…"     },
+    { icon: Wand2,    text: "Merancang ide kreatif…"          },
+    { icon: Sparkles, text: "Menyusun langkah pembuatan…"     },
+];
+
+function AiLoadingState() {
+    const [step, setStep] = useState(0);
+
+    useEffect(() => {
+        const id = setInterval(() => {
+            setStep((s) => (s < AI_STEPS.length - 1 ? s + 1 : s));
+        }, 1400);
+        return () => clearInterval(id);
+    }, []);
+
+    return (
+        <div className="overflow-hidden rounded-2xl border border-line bg-white">
+            {/* Header gradient bar */}
+            <div className="relative h-1.5 w-full overflow-hidden bg-mist">
+                <div className="animate-shimmer absolute inset-0" />
+            </div>
+
+            <div className="p-6">
+                {/* Icon orbit + label */}
+                <div className="flex items-center gap-5">
+                    {/* Orbital icon */}
+                    <div className="relative flex size-14 shrink-0 items-center justify-center">
+                        {/* Ring */}
+                        <span className="absolute inset-0 rounded-full border-2 border-dashed border-mint opacity-80" />
+                        {/* Center */}
+                        <span className="grid size-8 place-items-center rounded-full bg-forest text-mint">
+                            <Sparkles className="size-4 animate-ai-pulse" aria-hidden />
+                        </span>
+                        {/* Orbiting dots */}
+                        <span className="animate-orbit-1 absolute size-2 rounded-full bg-leaf" />
+                        <span className="animate-orbit-2 absolute size-2 rounded-full bg-leaf/70" />
+                        <span className="animate-orbit-3 absolute size-2 rounded-full bg-leaf/40" />
+                    </div>
+
+                    <div>
+                        <p className="text-sm font-semibold text-forest">
+                            AI sedang bekerja
+                            <span className="ml-1 inline-flex gap-0.5 align-middle">
+                                <span className="dot-1 inline-block size-1.5 rounded-full bg-leaf" />
+                                <span className="dot-2 inline-block size-1.5 rounded-full bg-leaf" />
+                                <span className="dot-3 inline-block size-1.5 rounded-full bg-leaf" />
+                            </span>
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted">
+                            Gemini AI sedang menganalisis & membuat ide daur ulang untukmu
+                        </p>
+                    </div>
+                </div>
+
+                {/* Step progress */}
+                <div className="mt-5 space-y-2">
+                    {AI_STEPS.map(({ icon: Icon, text }, i) => {
+                        const done    = i < step;
+                        const active  = i === step;
+                        return (
+                            <div
+                                key={text}
+                                className={[
+                                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs transition-all duration-500",
+                                    active  ? "animate-step-fade bg-mint text-forest font-semibold" : "",
+                                    done    ? "text-muted" : "",
+                                    !active && !done ? "text-line" : "",
+                                ].join(" ")}
+                            >
+                                <span
+                                    className={[
+                                        "grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold transition-all duration-500",
+                                        active  ? "bg-forest text-white" : "",
+                                        done    ? "bg-mist text-leaf"   : "",
+                                        !active && !done ? "bg-mist/40 text-muted" : "",
+                                    ].join(" ")}
+                                >
+                                    {done ? "✓" : <Icon className="size-3" />}
+                                </span>
+                                {text}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Shimmer cards */}
+                <div className="mt-5 space-y-3">
+                    {[100, 75, 55].map((w, i) => (
+                        <div
+                            key={i}
+                            className="overflow-hidden rounded-xl border border-line"
+                            style={{ animationDelay: `${i * 0.15}s` }}
+                        >
+                            <div className="flex items-center gap-3 p-4">
+                                <div className="animate-shimmer size-8 rounded-full" />
+                                <div className="flex-1 space-y-2">
+                                    <div
+                                        className="animate-shimmer h-3 rounded-full"
+                                        style={{ width: `${w}%` }}
+                                    />
+                                    <div
+                                        className="animate-shimmer h-2.5 rounded-full"
+                                        style={{ width: `${w - 20}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── CraftCard ─────────────────────────────────────────────────────────────
 
 function CraftCard({ craft, index }: { craft: CraftRecommendation; index: number }) {
@@ -153,7 +264,8 @@ function CraftCard({ craft, index }: { craft: CraftRecommendation; index: number
     const diff = DIFFICULTY_LABEL[craft.difficulty] ?? DIFFICULTY_LABEL.easy;
 
     return (
-        <div className="overflow-hidden rounded-2xl border border-line bg-white">
+        <div className="animate-step-fade overflow-hidden rounded-2xl border border-line bg-white"
+            style={{ animationDelay: `${index * 0.12}s` }}>
             <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
@@ -187,10 +299,7 @@ function CraftCard({ craft, index }: { craft: CraftRecommendation; index: number
                             </div>
                             <div className="flex flex-wrap gap-1.5">
                                 {craft.materials.map((m) => (
-                                    <span
-                                        key={m}
-                                        className="rounded-full border border-line bg-paper px-3 py-1 text-xs text-ink"
-                                    >
+                                    <span key={m} className="rounded-full border border-line bg-paper px-3 py-1 text-xs text-ink">
                                         {m}
                                     </span>
                                 ))}
@@ -232,12 +341,9 @@ function CraftCard({ craft, index }: { craft: CraftRecommendation; index: number
 // ── Main component ────────────────────────────────────────────────────────
 
 interface AiRecommendationPanelProps {
-    /** Nama objek dari hasil scan ML atau pilihan user */
     objectName: string;
-    /** Material sampah (misal "plastik", "kertas") */
-    material: string;
-    /** Jenis sampah: recyclable | organic | residue */
-    wasteType: string;
+    material:   string;
+    wasteType:  string;
 }
 
 type Status = "idle" | "loading" | "success" | "error";
@@ -247,8 +353,8 @@ export default function AiRecommendationPanel({
     material,
     wasteType,
 }: AiRecommendationPanelProps) {
-    const [status, setStatus] = useState<Status>("idle");
-    const [result, setResult] = useState<AiRecommendationResult | null>(null);
+    const [status,   setStatus]   = useState<Status>("loading");
+    const [result,   setResult]   = useState<AiRecommendationResult | null>(null);
     const [errorMsg, setErrorMsg] = useState("");
 
     const handleFetch = async () => {
@@ -264,52 +370,25 @@ export default function AiRecommendationPanel({
         }
     };
 
-    if (status === "idle") {
-        return (
-            <div className="rounded-[28px] border border-line bg-white p-6">
-                <div className="flex items-start gap-4">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-mint text-forest">
-                        <Sparkles className="size-5" aria-hidden />
-                    </span>
-                    <div>
-                        <h3 className="text-sm font-semibold leading-snug text-ink">Rekomendasi Karya AI</h3>
-                        <p className="mt-1 text-xs leading-relaxed text-muted">
-                            Dapatkan 3 ide kreatif yang bisa kamu buat dari sampah ini — lengkap dengan bahan, langkah, dan tips.
-                        </p>
-                    </div>
-                </div>
-                <button
-                    type="button"
-                    onClick={handleFetch}
-                    className="mt-5 flex items-center gap-2 rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
-                >
-                    <Sparkles className="size-4" aria-hidden />
-                    Minta rekomendasi AI
-                </button>
-            </div>
-        );
-    }
+    // Auto-fetch saat pertama mount
+    useEffect(() => { handleFetch(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    if (status === "loading") {
-        return (
-            <div className="rounded-[28px] border border-line bg-white p-6">
-                <div className="flex items-center gap-3 text-muted">
-                    <Loader2 className="size-5 animate-spin text-leaf" aria-hidden />
-                    <span className="text-sm">AI sedang menyiapkan rekomendasi karya untukmu…</span>
-                </div>
-                <div className="mt-4 space-y-3">
-                    {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-16 animate-pulse rounded-2xl bg-mist/60" />
-                    ))}
-                </div>
-            </div>
-        );
-    }
+    /* ── Loading ── */
+    if (status === "loading") return <AiLoadingState />;
 
+    /* ── Error ── */
     if (status === "error") {
         return (
-            <div className="rounded-[28px] border border-line bg-white p-6">
-                <p className="text-sm text-danger">{errorMsg}</p>
+            <div className="rounded-2xl border border-danger-soft bg-danger-soft/40 p-6">
+                <div className="flex items-start gap-3">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-danger-soft text-danger">
+                        <Sparkles className="size-4" aria-hidden />
+                    </span>
+                    <div>
+                        <p className="text-sm font-semibold text-danger">Gagal mendapat rekomendasi AI</p>
+                        <p className="mt-1 text-xs text-danger/80">{errorMsg}</p>
+                    </div>
+                </div>
                 <button
                     type="button"
                     onClick={handleFetch}
@@ -322,20 +401,28 @@ export default function AiRecommendationPanel({
         );
     }
 
+    /* ── Success ── */
     return (
         <div className="space-y-4" aria-live="polite">
-            <div className="flex items-start gap-4 rounded-[28px] bg-mint p-6">
+            {/* Header hasil */}
+            <div className="flex items-start gap-4 rounded-2xl bg-mint p-5">
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-forest">
                     <Sparkles className="size-5" aria-hidden />
                 </span>
                 <div>
-                    <h3 className="font-serif text-lg font-medium leading-snug text-forest">Ide Kreatif dari AI</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-leaf">
+                        Rekomendasi AI · Gemini
+                    </p>
+                    <h3 className="mt-1 font-serif text-lg font-medium leading-snug text-forest">
+                        Ide Kreatif dari AI
+                    </h3>
                     {result?.summary && (
                         <p className="mt-1 text-sm leading-relaxed text-ink/80">{result.summary}</p>
                     )}
                 </div>
             </div>
 
+            {/* Cards */}
             <div className="space-y-3">
                 {result?.recommendations.map((craft, i) => (
                     <CraftCard key={i} craft={craft} index={i} />
@@ -344,10 +431,7 @@ export default function AiRecommendationPanel({
 
             <button
                 type="button"
-                onClick={() => {
-                    setResult(null);
-                    setStatus("idle");
-                }}
+                onClick={handleFetch}
                 className="flex items-center gap-2 rounded-xl border border-forest/30 px-5 py-2.5 text-sm font-semibold text-forest transition-colors hover:bg-mist"
             >
                 <RotateCcw className="size-4" aria-hidden />
