@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\RewardController;
 use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WasteBankController as AdminWasteBankController;
+use App\Http\Controllers\Api\AiCraftRecommendationController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\User\MemberCardController;
 use App\Http\Controllers\User\NotificationController;
@@ -103,6 +104,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Pencarian bank sampah
         Route::get('waste-banks', [WasteBankSearchController::class, 'index']);
         Route::get('waste-banks/{id}', [WasteBankSearchController::class, 'show']);
+
+        // Rekomendasi karya berbasis AI dari hasil scan sampah
+        Route::middleware('throttle:ai-recommend')->post('scan/ai-recommend', [AiCraftRecommendationController::class, 'recommend']);
     });
 
     // ── Community ─────────────────────────────────────────────────────────

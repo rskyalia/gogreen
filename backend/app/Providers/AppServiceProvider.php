@@ -41,6 +41,16 @@ class AppServiceProvider extends ServiceProvider
                 ], 429));
         });
 
+        // Rate limiter untuk AI rekomendasi karya — 10 per menit per user (panggilan Gemini mahal)
+        RateLimiter::for('ai-recommend', function (Request $request) {
+            return Limit::perMinute(10)
+                ->by(optional($request->user())->id ?: $request->ip())
+                ->response(fn () => response()->json([
+                    'message' => 'Terlalu banyak permintaan rekomendasi AI. Coba lagi sebentar.',
+                    'errors' => [],
+                ], 429));
+        });
+
         // Rate limiter default API — 60 request/menit per user atau IP
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)

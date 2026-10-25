@@ -15,6 +15,7 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { getTutorial } from "@/lib/tutorials";
+import AiRecommendationPanel from "./AiRecommendationPanel";
 
 type Kind = "daur-ulang" | "organik" | "residu";
 type Condition = "bersih" | "kotor" | "rusak";
@@ -101,6 +102,8 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
     const [kind, setKind] = useState<Kind | null>(null);
     const [cond, setCond] = useState<Condition | null>(null);
     const [shown, setShown] = useState(false);
+    // Key dipakai untuk reset AiRecommendationPanel saat scan baru dimulai
+    const [aiKey, setAiKey] = useState(0);
 
     useEffect(() => {
         return () => {
@@ -113,6 +116,7 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
         if (file) {
             setPreview(URL.createObjectURL(file));
             setShown(false);
+            setAiKey((k) => k + 1);
         }
         e.target.value = ""; // supaya foto yang sama bisa dipilih lagi
     };
@@ -122,11 +126,31 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
         setKind(null);
         setCond(null);
         setShown(false);
+        setAiKey((k) => k + 1);
     };
 
     const ready = Boolean(preview && kind && cond);
     const potential = kind && cond ? getPotential(kind, cond) : null;
     const tutorial = potential?.tutorialId ? getTutorial(potential.tutorialId) : undefined;
+
+    /** Mapping kind → waste_type untuk API AI */
+    const aiWasteType = kind === "organik" ? "organic" : kind === "residu" ? "residue" : "recyclable";
+
+    /** Nama objek deskriptif untuk AI berdasarkan pilihan user */
+    const aiObjectName =
+        kind === "organik"
+            ? "sisa organik (sayur/buah)"
+            : kind === "residu"
+              ? "sampah residu"
+              : cond === "bersih"
+                ? "botol/galon plastik bersih"
+                : cond === "kotor"
+                  ? "botol/galon plastik kotor"
+                  : "bahan daur ulang rusak";
+
+    /** Material sampah untuk AI */
+    const aiMaterial =
+        kind === "organik" ? "organik" : kind === "residu" ? "campuran" : "plastik";
 
     return (
         <div className="space-y-6">
@@ -278,6 +302,16 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
                     )}
                 </section>
             </div>
+
+            {/* Panel Rekomendasi AI — tampil full-width setelah user klik "Lihat potensi olahan" */}
+            {shown && kind !== "residu" && (
+                <AiRecommendationPanel
+                    key={aiKey}
+                    objectName={aiObjectName}
+                    material={aiMaterial}
+                    wasteType={aiWasteType}
+                />
+            )}
         </div>
     );
 }
