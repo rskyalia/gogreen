@@ -28,15 +28,10 @@ export type Tutorial = {
     tone: string;
 };
 
-// ── Konfigurasi (satu tempat untuk diubah) ────────────────────────────────
-
-// Isi NEXT_PUBLIC_DIY_SOURCE=api di .env.local kalau endpoint user sudah ada.
 const USE_API = process.env.NEXT_PUBLIC_DIY_SOURCE === "api";
 const DIY_ENDPOINT = "/user/diy-guides";
 
 const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api").replace(/\/api\/?$/, "");
-
-// ── Tipe response backend (dibuat longgar) ────────────────────────────────
 
 type Named = { id?: number; name: string } | string | null | undefined;
 
@@ -57,10 +52,7 @@ type DiyGuideDto = {
     creator?: Named;
 };
 
-// Mendukung {data: [...]} maupun {success, message, data: [...]}
 type ListResponse = { data: DiyGuideDto[] };
-
-// ── Helper tampilan ───────────────────────────────────────────────────────
 
 const LEVEL: Record<string, string> = { easy: "Mudah", medium: "Sedang", hard: "Sulit" };
 
@@ -91,7 +83,6 @@ function nameOf(v: Named): string | null {
     return typeof v === "string" ? v : v.name ?? null;
 }
 
-// steps/materials bisa berupa string atau object {description|text|title|name}
 function toText(item: unknown): string {
     if (typeof item === "string") return item;
     if (item && typeof item === "object") {
@@ -128,8 +119,6 @@ function toTutorial(d: DiyGuideDto): Tutorial {
         tone,
     };
 }
-
-// ── Sumber data ───────────────────────────────────────────────────────────
 
 function fromStatic(): Tutorial[] {
     return staticTutorials.map((s) => ({

@@ -2,6 +2,12 @@ import { Container, Cylinder, Leaf, type LucideIcon } from "lucide-react";
 
 export type SubmissionStatus = "pending" | "approved" | "rejected";
 
+// Dummy: ganti dengan data dari backend saat endpoint komunitas sudah ada
+export const COMMUNITIES = [
+    { id: "umum", name: "Semua komunitas DIY" },
+    { id: "bank-sampah-melati", name: "Komunitas Bank Sampah Melati" },
+];
+
 // Sementara hanya tampilan (belum terhubung ke backend).
 // Nanti bentuk ini bisa dipetakan dari respons endpoint karya milik user.
 export type Submission = {
@@ -15,6 +21,9 @@ export type Submission = {
     pointsAwarded: number;
     rewardPoints: number;
     reviewNote: string | null;
+    community?: string | null; // nama komunitas tujuan
+    notes?: string | null;
+    isCustom?: boolean; // true = karya tulisan sendiri (bukan dari tutorial)
     Icon: LucideIcon;
     tone: string;
 };

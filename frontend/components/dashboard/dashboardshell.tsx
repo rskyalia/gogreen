@@ -81,7 +81,6 @@ export default function DashboardShell() {
     const [diyId, setDiyId] = useState<string | null>(null);
     const [submissions, setSubmissions] = useState<Submission[]>(SAMPLE_SUBMISSIONS);
 
-    // ── State Notifikasi ───────────────────────────────────────────────────
     const [notifs, setNotifs] = useState<NotificationItem[]>([]);
     const [unread, setUnread] = useState(0);
     const [panelOpen, setPanelOpen] = useState(false);
@@ -183,7 +182,6 @@ export default function DashboardShell() {
 
     return (
         <div className="min-h-screen bg-paper">
-            {/* ── SIDEBAR DESKTOP (FIXED POS) ── */}
             <aside className="fixed left-0 top-0 z-30 hidden h-screen w-64 flex-col border-r border-line bg-white p-5 lg:flex">
                 <div className="flex items-center justify-between">
                     <Logo />

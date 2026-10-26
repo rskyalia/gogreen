@@ -51,7 +51,7 @@ export const WASTE_BANK_NAV: NavItem[] = [
   { label: 'Ringkasan',      href: '/waste-bank/dashboard',         icon: LayoutDashboard },
   { label: 'Input Setoran',  href: '/waste-bank/deposits/new',      icon: ArrowDownToLine },
   { label: 'Rekapan',        href: '/waste-bank/deposits',          icon: ClipboardList   },
-  { label: 'Profil',         href: '/waste-bank/profile',           icon: User            },
+  // { label: 'Profil',         href: '/waste-bank/profile',           icon: User            },
   { label: 'Request Bahan',  href: '/waste-bank/material-requests', icon: Package         },
 ];
 
