@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
+    ArrowUpRight,
     Camera,
+    Clock,
     ImagePlus,
     Leaf,
     Lightbulb,
     MapPin,
     Recycle,
     RotateCcw,
+    Sparkles,
     Trash2,
+    Users,
     type LucideIcon,
 } from "lucide-react";
 import { getTutorial } from "@/lib/tutorials";
@@ -97,6 +101,106 @@ function Choice({
 const pickBtn =
     "flex cursor-pointer items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-leaf";
 
+const initials = (name: string) =>
+    name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+
+/** Judul kolom hasil (dipakai untuk kolom AI dan kolom Komunitas) */
+function ColumnHeading({
+    icon: Icon,
+    title,
+    note,
+}: {
+    icon: LucideIcon;
+    title: string;
+    note: string;
+}) {
+    return (
+        <div className="mb-3 flex items-center gap-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-mint text-forest">
+                <Icon className="size-4" aria-hidden />
+            </span>
+            <div className="leading-tight">
+                <h2 className="font-serif text-xl font-medium text-forest">{title}</h2>
+                <p className="text-xs text-muted">{note}</p>
+            </div>
+        </div>
+    );
+}
+
+type TutorialItem = NonNullable<ReturnType<typeof getTutorial>>;
+
+function CommunityTutorialCard({ tutorial, onOpen }: { tutorial: TutorialItem; onOpen: () => void }) {
+    const extra = tutorial.materials.length - 4;
+
+    return (
+        <article className="overflow-hidden rounded-2xl border border-line bg-white">
+            <div className={`relative grid h-36 place-items-center overflow-hidden ${tutorial.tone}`}>
+                {tutorial.image ? (
+                    <Image
+                        src={tutorial.image}
+                        alt=""
+                        fill
+                        unoptimized
+                        sizes="(min-width: 1024px) 420px, 100vw"
+                        className="object-cover"
+                    />
+                ) : (
+                    <tutorial.Icon className="size-14 opacity-70" strokeWidth={1.25} aria-hidden />
+                )}
+                <span className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-semibold text-forest">
+                    {tutorial.category}
+                </span>
+            </div>
+
+            <div className="space-y-4 p-5">
+                <div className="flex items-center gap-2.5">
+                    <span className="grid size-8 place-items-center rounded-full bg-mint text-[11px] font-bold text-forest">
+                        {initials(tutorial.by)}
+                    </span>
+                    <span className="leading-tight">
+                        <span className="block text-sm font-semibold text-ink">{tutorial.by}</span>
+                        <span className="block text-xs text-muted">Kreator komunitas</span>
+                    </span>
+                </div>
+
+                <div>
+                    <h3 className="font-serif text-xl font-medium leading-snug text-forest">{tutorial.title}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted">{tutorial.summary}</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
+                    <span className="rounded-full bg-mint px-3 py-1 font-semibold text-forest">{tutorial.level}</span>
+                    <span className="flex items-center gap-1.5">
+                        <Clock className="size-3.5" aria-hidden />
+                        {tutorial.time}
+                    </span>
+                    <span>{tutorial.steps.length} langkah</span>
+                </div>
+
+                <ul className="flex flex-wrap gap-1.5" aria-label="Bahan">
+                    {tutorial.materials.slice(0, 4).map((m) => (
+                        <li key={m} className="rounded-full border border-line bg-paper px-3 py-1 text-xs text-ink">
+                            {m}
+                        </li>
+                    ))}
+                    {extra > 0 && (
+                        <li className="rounded-full border border-line bg-paper px-3 py-1 text-xs text-muted">+{extra} lagi</li>
+                    )}
+                </ul>
+
+                <button
+                    type="button"
+                    onClick={onOpen}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
+                >
+                    Buka tutorial
+                    <ArrowUpRight className="size-4" aria-hidden />
+                </button>
+            </div>
+        </article>
+    );
+}
+
 export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: string) => void }) {
     const [preview, setPreview] = useState<string | null>(null);
     const [kind, setKind] = useState<Kind | null>(null);
@@ -104,12 +208,20 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
     const [shown, setShown] = useState(false);
     // Key dipakai untuk reset AiRecommendationPanel saat scan baru dimulai
     const [aiKey, setAiKey] = useState(0);
+    const resultRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
         return () => {
             if (preview) URL.revokeObjectURL(preview);
         };
     }, [preview]);
+
+    // Geser layar ke hasil setelah "Lihat potensi olahan" diklik
+    useEffect(() => {
+        if (!shown) return;
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        resultRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    }, [shown]);
 
     const onPick = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -132,6 +244,9 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
     const ready = Boolean(preview && kind && cond);
     const potential = kind && cond ? getPotential(kind, cond) : null;
     const tutorial = potential?.tutorialId ? getTutorial(potential.tutorialId) : undefined;
+
+    const showAi = kind !== "residu";
+    const showBank = kind !== "organik";
 
     /** Mapping kind → waste_type untuk API AI */
     const aiWasteType = kind === "organik" ? "organic" : kind === "residu" ? "residue" : "recyclable";
@@ -247,70 +362,76 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
                             <p className="mt-2 text-xs text-muted">Lengkapi foto, jenis sampah, dan kondisinya dulu.</p>
                         )}
                     </div>
-
-                    {shown && potential && (
-                        <div aria-live="polite" className="rounded-[28px] border border-line bg-mint p-6">
-                            <span className="grid size-10 place-items-center rounded-full bg-white text-forest">
-                                <Lightbulb className="size-5" aria-hidden />
-                            </span>
-                            <h2 className="mt-4 font-serif text-2xl font-medium leading-snug text-forest">{potential.title}</h2>
-                            <p className="mt-2 text-sm leading-relaxed text-ink/80">{potential.text}</p>
-                            {tutorial && (
-                                <p className="mt-3 text-xs text-ink/70">Tutorial: {tutorial.title}</p>
-                            )}
-
-                            <div className="mt-5 flex flex-wrap gap-3">
-                                {tutorial ? (
-                                    <>
-                                        <button
-                                            type="button"
-                                            onClick={() => onOpenTutorial(tutorial.id)}
-                                            className="rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
-                                        >
-                                            Buka tutorial
-                                        </button>
-                                        {/* Jika bisa didaur ulang (bukan organik), tawarkan juga bank sampah */}
-                                        {kind === "daur-ulang" && (
-                                            <Link
-                                                href="/waste-banks"
-                                                className="flex items-center gap-1.5 rounded-xl border border-forest/30 px-5 py-2.5 text-sm font-semibold text-forest transition-colors hover:bg-mist"
-                                            >
-                                                <MapPin className="size-4" aria-hidden />
-                                                Cari bank sampah
-                                            </Link>
-                                        )}
-                                    </>
-                                ) : (
-                                    <Link
-                                        href="/waste-banks"
-                                        className="flex items-center gap-1.5 rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
-                                    >
-                                        <MapPin className="size-4" aria-hidden />
-                                        Cari bank sampah
-                                    </Link>
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={reset}
-                                    className="flex items-center gap-2 rounded-xl border border-forest/30 px-5 py-2.5 text-sm font-semibold text-forest transition-colors hover:bg-white/60"
-                                >
-                                    <RotateCcw className="size-4" aria-hidden />
-                                    Scan lagi
-                                </button>
-                            </div>
-                        </div>
-                    )}
                 </section>
             </div>
 
-            {/* Panel Rekomendasi AI — tampil full-width setelah user klik "Lihat potensi olahan" */}
-            {shown && kind !== "residu" && (
-                <AiRecommendationPanel
-                    key={aiKey}
-                    objectName={aiObjectName}
-                    material={aiMaterial}
-                    wasteType={aiWasteType}
-                />
+            {/* Hasil: ringkasan potensi di atas, lalu tutorial AI + Komunitas DIY berdampingan */}
+            {shown && potential && (
+                <section ref={resultRef} className="scroll-mt-20 space-y-6">
+                    <div
+                        aria-live="polite"
+                        className="flex flex-col gap-5 rounded-[28px] border border-line bg-mint p-6 sm:p-8 md:flex-row md:items-center md:justify-between"
+                    >
+                        <div className="flex items-start gap-4">
+                            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-white text-forest">
+                                <Lightbulb className="size-5" aria-hidden />
+                            </span>
+                            <div className="max-w-2xl">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-leaf">Potensi olahan</p>
+                                <h2 className="mt-1 font-serif text-2xl font-medium leading-snug text-forest">{potential.title}</h2>
+                                <p className="mt-2 text-sm leading-relaxed text-ink/80">{potential.text}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex shrink-0 flex-wrap gap-3">
+                            {showBank && (
+                                <Link
+                                    href="/waste-banks"
+                                    className={
+                                        tutorial
+                                            ? "flex items-center gap-1.5 rounded-xl border border-forest/30 px-5 py-2.5 text-sm font-semibold text-forest transition-colors hover:bg-white/60"
+                                            : "flex items-center gap-1.5 rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
+                                    }
+                                >
+                                    <MapPin className="size-4" aria-hidden />
+                                    Cari bank sampah
+                                </Link>
+                            )}
+                            <button
+                                type="button"
+                                onClick={reset}
+                                className="flex items-center gap-2 rounded-xl border border-forest/30 px-5 py-2.5 text-sm font-semibold text-forest transition-colors hover:bg-white/60"
+                            >
+                                <RotateCcw className="size-4" aria-hidden />
+                                Scan lagi
+                            </button>
+                        </div>
+                    </div>
+
+                    {(showAi || tutorial) && (
+                        <div className={`grid items-start gap-6 ${showAi && tutorial ? "lg:grid-cols-2" : ""}`}>
+                            {showAi && (
+                                <div>
+                                    <ColumnHeading icon={Sparkles} title="Ide dari AI" note="Dibuat otomatis oleh Gemini" />
+                                    <AiRecommendationPanel
+                                        key={aiKey}
+                                        objectName={aiObjectName}
+                                        material={aiMaterial}
+                                        wasteType={aiWasteType}
+                                    />
+                                </div>
+                            )}
+
+                            {tutorial && (
+                                // Di HP tampil lebih dulu (singkat), di desktop berada di kanan
+                                <div className="order-first lg:order-none">
+                                    <ColumnHeading icon={Users} title="Dari Komunitas DIY" note="Tutorial dari kreator komunitas" />
+                                    <CommunityTutorialCard tutorial={tutorial} onOpen={() => onOpenTutorial(tutorial.id)} />
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </section>
             )}
         </div>
     );
