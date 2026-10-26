@@ -75,9 +75,6 @@ export default function OverviewView({ name, onScan }: { name: string; onScan: (
                     </p>
                     <h1 className="mt-2 flex items-center gap-3 font-serif text-3xl font-medium text-forest sm:text-4xl">
                         Halo, {name}!
-                        <span className="grid size-9 rotate-12 place-items-center rounded-full bg-mint text-leaf">
-                            <Sprout className="size-5" aria-hidden />
-                        </span>
                     </h1>
                     <p className="mt-2 text-sm text-muted">
                         {NEXT_AT - POINTS} poin lagi menuju Builder, dan kamu sudah aktif {STREAK} hari berturut-turut.

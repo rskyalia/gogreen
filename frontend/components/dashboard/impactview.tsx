@@ -1,4 +1,5 @@
 import MyPosts from "@/components/dashboard/MyPosts";
+import type { Submission } from "@/lib/submissons";
 
 const week = [
     { day: "Sen", kg: 1.2 },
@@ -11,7 +12,13 @@ const week = [
 ];
 const max = Math.max(...week.map((w) => w.kg));
 
-export default function ImpactView() {
+export default function ImpactView({
+    submissions,
+    onUpload,
+}: {
+    submissions: Submission[];
+    onUpload?: () => void;
+}) {
     return (
         <div className="space-y-5">
             <h1 className="font-serif text-2xl font-medium text-forest sm:text-3xl">Dampak saya</h1>
@@ -30,8 +37,7 @@ export default function ImpactView() {
                     ))}
                 </ul>
             </section>
-            <MyPosts />
-
+            <MyPosts items={submissions} onUpload={onUpload} />
         </div>
     );
 }
