@@ -1,15 +1,43 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import Image from "next/image";
-import { Camera, CircleCheck, ImagePlus } from "lucide-react";
+import { Camera, CircleCheck, ImagePlus, Leaf } from "lucide-react";
 import { fetchTutorials, type Tutorial } from "@/lib/diy";
-import type { Submission } from "@/lib/submissons";
+import { categories } from "@/lib/tutorials";
+import { COMMUNITIES, type Submission } from "@/lib/submissons";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
 
 const MAX_MB = 5;
+const MAX_NOTES = 300;
+
+type Mode = "guide" | "custom";
 
 const pickBtn =
     "flex cursor-pointer items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-leaf";
+
+function ModeChoice({
+    value,
+    checked,
+    onChange,
+    children,
+}: {
+    value: Mode;
+    checked: boolean;
+    onChange: () => void;
+    children: ReactNode;
+}) {
+    return (
+        <label className="relative block cursor-pointer">
+            <input type="radio" name="mode" value={value} checked={checked} onChange={onChange} className="peer sr-only" />
+            <span className="block h-full rounded-2xl border border-line bg-white p-4 transition-colors hover:bg-mist/60 peer-checked:border-forest peer-checked:bg-mist peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-leaf">
+                {children}
+            </span>
+        </label>
+    );
+}
 
 export default function UploadView({
     onSubmit,
@@ -20,7 +48,12 @@ export default function UploadView({
 }) {
     const [guides, setGuides] = useState<Tutorial[]>([]);
     const [guidesState, setGuidesState] = useState<"loading" | "ready" | "error">("loading");
+    const [mode, setMode] = useState<Mode>("guide");
     const [guideId, setGuideId] = useState("");
+    const [customTitle, setCustomTitle] = useState("");
+    const [customCategory, setCustomCategory] = useState("");
+    const [communityId, setCommunityId] = useState("");
+    const [notes, setNotes] = useState("");
     const [photo, setPhoto] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
     const [error, setError] = useState("");
@@ -42,6 +75,12 @@ export default function UploadView({
     }, [preview]);
 
     const guide = guides.find((g) => g.id === guideId);
+    const community = COMMUNITIES.find((c) => c.id === communityId);
+
+    const hasWork =
+        mode === "guide" ? Boolean(guide) : customTitle.trim().length >= 3 && customCategory !== "";
+    // Hapus "&& Boolean(community)" kalau komunitas tujuan ingin dibuat opsional
+    const ready = hasWork && Boolean(photo) && Boolean(community);
 
     const onPick = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -58,27 +97,52 @@ export default function UploadView({
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
-        if (!guide || !photo) return;
-        onSubmit({
+        if (!ready || !photo) return;
+
+        const common = {
             id: `local-${Date.now()}`,
-            guideId: guide.id,
-            status: "pending",
-            title: guide.title,
-            category: guide.category,
+            status: "pending" as const,
             image: URL.createObjectURL(photo),
             createdAt: new Date().toISOString(),
             pointsAwarded: 0,
-            rewardPoints: guide.rewardPoints,
             reviewNote: null,
-            Icon: guide.Icon,
-            tone: guide.tone,
-        });
+            community: community?.name ?? null,
+            notes: notes.trim() || null,
+        };
+
+        if (mode === "guide" && guide) {
+            onSubmit({
+                ...common,
+                guideId: guide.id,
+                title: guide.title,
+                category: guide.category,
+                rewardPoints: guide.rewardPoints,
+                Icon: guide.Icon,
+                tone: guide.tone,
+            });
+        } else {
+            onSubmit({
+                ...common,
+                guideId: "custom",
+                isCustom: true,
+                title: customTitle.trim(),
+                category: customCategory,
+                rewardPoints: 0, // karya sendiri: poin ditentukan saat validasi
+                Icon: Leaf,
+                tone: "bg-mint text-forest",
+            });
+        }
         setSent(true);
     };
 
     const reset = () => {
         setSent(false);
+        setMode("guide");
         setGuideId("");
+        setCustomTitle("");
+        setCustomCategory("");
+        setCommunityId("");
+        setNotes("");
         setPhoto(null);
         setPreview(null);
     };
@@ -117,7 +181,7 @@ export default function UploadView({
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-leaf">Build It</p>
                 <h1 className="mt-2 font-serif text-3xl font-medium text-forest sm:text-4xl">Upload karya</h1>
                 <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
-                    Pilih karya yang kamu kerjakan, lalu kirim foto hasilnya. Karya divalidasi dulu sebelum poin masuk.
+                    Pilih tutorial yang kamu ikuti atau tulis karyamu sendiri, lalu kirim foto hasilnya. Karya divalidasi dulu sebelum poin masuk.
                 </p>
             </header>
 
@@ -149,36 +213,100 @@ export default function UploadView({
                 </section>
 
                 <section className="space-y-5">
-                    <div>
-                        <label htmlFor="guide" className="block text-sm font-semibold text-ink">
-                            Karya yang kamu kerjakan
-                        </label>
-                        <select
+                    <fieldset>
+                        <legend className="text-sm font-semibold text-ink">Jenis karya</legend>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <ModeChoice value="guide" checked={mode === "guide"} onChange={() => setMode("guide")}>
+                                <span className="block text-sm font-semibold text-ink">Dari tutorial</span>
+                                <span className="mt-0.5 block text-xs leading-snug text-muted">
+                                    Pilih tutorial yang sudah kamu kerjakan
+                                </span>
+                            </ModeChoice>
+                            <ModeChoice value="custom" checked={mode === "custom"} onChange={() => setMode("custom")}>
+                                <span className="block text-sm font-semibold text-ink">Tulis karyamu sendiri</span>
+                                <span className="mt-0.5 block text-xs leading-snug text-muted">
+                                    Karya hasil idemu sendiri
+                                </span>
+                            </ModeChoice>
+                        </div>
+                    </fieldset>
+
+                    {mode === "guide" ? (
+                        <Select
                             id="guide"
+                            label="Karya yang kamu kerjakan"
                             value={guideId}
                             onChange={(e) => setGuideId(e.target.value)}
                             disabled={guidesState !== "ready"}
-                            className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink disabled:opacity-60"
+                            error={guidesState === "error" ? "Daftar tutorial gagal dimuat. Coba muat ulang halaman." : undefined}
+                            hint={
+                                guide
+                                    ? `${guide.category}${guide.rewardPoints > 0 ? ` · +${guide.rewardPoints} poin kalau disetujui` : ""}`
+                                    : undefined
+                            }
                         >
-                            <option value="">
-                                {guidesState === "loading" ? "Memuat karya..." : "Pilih karya"}
-                            </option>
+                            <option value="">{guidesState === "loading" ? "Memuat karya..." : "Pilih karya"}</option>
                             {guides.map((g) => (
                                 <option key={g.id} value={g.id}>
                                     {g.title}
                                 </option>
                             ))}
-                        </select>
-                        {guidesState === "error" && (
-                            <p className="mt-2 text-xs text-red-700">Daftar tutorial gagal dimuat. Coba muat ulang halaman.</p>
-                        )}
-                        {guide && (
-                            <p className="mt-2 text-xs text-muted">
-                                {guide.category}
-                                {guide.rewardPoints > 0 && ` · +${guide.rewardPoints} poin kalau disetujui`}
-                            </p>
-                        )}
-                    </div>
+                        </Select>
+                    ) : (
+                        <div className="space-y-5">
+                            <Input
+                                id="custom-title"
+                                label="Nama karyamu"
+                                required
+                                maxLength={80}
+                                placeholder="Contoh: Lampu hias dari tutup botol"
+                                value={customTitle}
+                                onChange={(e) => setCustomTitle(e.target.value)}
+                                hint="Minimal 3 karakter"
+                            />
+                            <Select
+                                id="custom-category"
+                                label="Kategori bahan"
+                                required
+                                value={customCategory}
+                                onChange={(e) => setCustomCategory(e.target.value)}
+                            >
+                                <option value="">Pilih kategori</option>
+                                {[...categories, "Lainnya"].map((c) => (
+                                    <option key={c} value={c}>
+                                        {c}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+                    )}
+
+                    <Select
+                        id="community"
+                        label="Komunitas yang dituju"
+                        required
+                        value={communityId}
+                        onChange={(e) => setCommunityId(e.target.value)}
+                        hint="Pilih komunitas tujuan karyamu."
+                    >
+                        <option value="">Pilih komunitas</option>
+                        {COMMUNITIES.map((c) => (
+                            <option key={c.id} value={c.id}>
+                                {c.name}
+                            </option>
+                        ))}
+                    </Select>
+
+                    <Textarea
+                        id="notes"
+                        label="Catatan (opsional)"
+                        rows={4}
+                        maxLength={MAX_NOTES}
+                        placeholder="Ceritakan prosesnya, bahan yang dipakai, atau kendala yang kamu temui."
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        hint={`${notes.length}/${MAX_NOTES}`}
+                    />
 
                     {error && (
                         <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -186,16 +314,18 @@ export default function UploadView({
                         </p>
                     )}
 
-                    <button
-                        type="submit"
-                        disabled={!guideId || !photo}
-                        className="rounded-xl bg-forest px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                        Kirim karya
-                    </button>
-                    {(!guideId || !photo) && (
-                        <p className="text-xs text-muted">Pilih tutorial dan foto karya dulu.</p>
-                    )}
+                    <div>
+                        <button
+                            type="submit"
+                            disabled={!ready}
+                            className="rounded-xl bg-forest px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            Kirim karya
+                        </button>
+                        {!ready && (
+                            <p className="mt-2 text-xs text-muted">Lengkapi karya, foto, dan komunitas tujuan dulu.</p>
+                        )}
+                    </div>
                 </section>
             </form>
         </div>

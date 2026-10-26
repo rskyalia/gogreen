@@ -256,12 +256,12 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
         kind === "organik"
             ? "sisa organik (sayur/buah)"
             : kind === "residu"
-              ? "sampah residu"
-              : cond === "bersih"
-                ? "botol/galon plastik bersih"
-                : cond === "kotor"
-                  ? "botol/galon plastik kotor"
-                  : "bahan daur ulang rusak";
+                ? "sampah residu"
+                : cond === "bersih"
+                    ? "botol/galon plastik bersih"
+                    : cond === "kotor"
+                        ? "botol/galon plastik kotor"
+                        : "bahan daur ulang rusak";
 
     /** Material sampah untuk AI */
     const aiMaterial =
@@ -423,7 +423,6 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
                             )}
 
                             {tutorial && (
-                                // Di HP tampil lebih dulu (singkat), di desktop berada di kanan
                                 <div className="order-first lg:order-none">
                                     <ColumnHeading icon={Users} title="Dari Komunitas DIY" note="Tutorial dari kreator komunitas" />
                                     <CommunityTutorialCard tutorial={tutorial} onOpen={() => onOpenTutorial(tutorial.id)} />
