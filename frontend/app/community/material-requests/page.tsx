@@ -197,22 +197,22 @@ export default function MaterialRequestsPage() {
   return (
     <div className="space-y-8 font-sans text-[#1d3b2f]">
       {/* Header Utama */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <span className="text-[11px] font-bold text-[#1f8a5b] tracking-widest uppercase flex items-center gap-1.5">
+          <span className="text-[10px] sm:text-[11px] font-bold text-[#1f8a5b] tracking-widest uppercase flex items-center gap-1.5">
             <PackagePlus className="w-3.5 h-3.5" /> LOGISTIK & PASOKAN BAHAN
           </span>
-          <h1 className="text-3xl font-serif font-bold text-[#1d3b2f] mt-0.5">
+          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1d3b2f] mt-0.5">
             Request Bahan Daur Ulang
           </h1>
-          <p className="text-xs text-[#6b8279] mt-1">
+          <p className="text-xs text-[#6b8279] mt-1 max-w-xl">
             Ajukan kebutuhan bahan mentah daur ulang untuk kegiatan workshop atau salurkan bahan dari Bank Sampah.
           </p>
         </div>
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-[#0b4d36] hover:bg-[#0a3f2d] text-white text-xs font-bold px-4 py-3 rounded-xl flex items-center gap-2 transition-all shadow-md shadow-[#0b4d36]/10 shrink-0 cursor-pointer"
+          className="bg-[#0b4d36] hover:bg-[#0a3f2d] text-white text-xs font-bold px-4 py-2.5 sm:py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-[#0b4d36]/10 shrink-0 cursor-pointer w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Buat Request Bahan Baru</span>
@@ -416,11 +416,11 @@ export default function MaterialRequestsPage() {
 
       {/* Modal Form Tambah Request */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-[#d7e6dd] max-w-lg w-full p-6 space-y-5 shadow-2xl my-8">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#d7e6dd] max-w-lg w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl my-4 sm:my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-[#d7e6dd] pb-3">
               <div>
-                <h2 className="text-lg font-serif font-bold text-[#1d3b2f]">
+                <h2 className="text-base sm:text-lg font-serif font-bold text-[#1d3b2f]">
                   Buat Request Bahan Daur Ulang
                 </h2>
                 <p className="text-xs text-[#6b8279]">
@@ -435,7 +435,7 @@ export default function MaterialRequestsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateRequest} className="space-y-4 text-xs">
+            <form onSubmit={handleCreateRequest} className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-bold text-[#1d3b2f] mb-1">Nama Permintaan Bahan</label>
                 <input
@@ -448,7 +448,7 @@ export default function MaterialRequestsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-[#1d3b2f] mb-1">Kategori Jenis Sampah</label>
                   <select
@@ -477,7 +477,7 @@ export default function MaterialRequestsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-[#1d3b2f] mb-1">Nama Pemohon / Organisasi</label>
                   <input
@@ -569,17 +569,17 @@ export default function MaterialRequestsPage() {
                 />
               </div>
 
-              <div className="pt-3 border-t border-[#d7e6dd] flex justify-end gap-2">
+              <div className="pt-3 border-t border-[#d7e6dd] flex flex-col-reverse sm:flex-row justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-[#d7e6dd] text-[#6b8279] hover:bg-[#f5faf7] font-bold cursor-pointer"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-[#d7e6dd] text-[#6b8279] hover:bg-[#f5faf7] font-bold cursor-pointer text-center"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0b4d36] hover:bg-[#0a3f2d] text-white font-bold transition-all shadow-md cursor-pointer"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0b4d36] hover:bg-[#0a3f2d] text-white font-bold transition-all shadow-md cursor-pointer text-center"
                 >
                   Publikasikan Request
                 </button>
