@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Sidebar — komponen navigasi lateral.
+ * Sidebar — komponen navigasi lateral (desktop).
  *
  * Menerima prop `variant` (string plain) bukan array NavItem yang berisi
  * LucideIcon, karena LucideIcon adalah function/class yang tidak bisa
@@ -12,7 +12,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogOut } from 'lucide-react';
+import { Leaf, LogOut } from 'lucide-react';
 import { WASTE_BANK_NAV, DEVELOPER_NAV } from '@/lib/navigation';
 import { useAuth } from '@/context/AuthContext';
 import type { NavItem } from '@/lib/navigation';
@@ -22,7 +22,7 @@ import type { NavItem } from '@/lib/navigation';
 export type SidebarVariant = 'waste_bank' | 'developer';
 
 interface SidebarProps {
-  variant:  SidebarVariant;
+  variant: SidebarVariant;
   section?: string;
 }
 
@@ -30,105 +30,98 @@ interface SidebarProps {
 
 const NAV_MAP: Record<SidebarVariant, NavItem[]> = {
   waste_bank: WASTE_BANK_NAV,
-  developer:  DEVELOPER_NAV,
+  developer: DEVELOPER_NAV,
 };
 
 const SECTION_MAP: Record<SidebarVariant, string> = {
   waste_bank: 'Bank Sampah',
-  developer:  'Developer',
+  developer: 'Developer',
 };
+
+// ── Logo ──────────────────────────────────────────────────────────────────
+
+function Logo() {
+  return (
+    <Link href="/" className="flex items-center gap-2.5">
+      <span className="grid size-9 place-items-center rounded-full bg-forest text-mint">
+        <Leaf className="size-5" aria-hidden />
+      </span>
+      <span className="font-serif text-base font-semibold leading-tight text-forest">
+        Go Green Innovation
+      </span>
+    </Link>
+  );
+}
 
 // ── Component ─────────────────────────────────────────────────────────────
 
 export function Sidebar({ variant, section }: SidebarProps) {
-  const pathname        = usePathname();
+  const pathname = usePathname();
   const { user, logout } = useAuth();
-  const nav             = NAV_MAP[variant];
-  const label           = section ?? SECTION_MAP[variant];
+  const nav = NAV_MAP[variant];
+  const label = section ?? SECTION_MAP[variant];
 
   return (
     <aside
-      className="flex h-full w-60 shrink-0 flex-col border-r border-line bg-white"
+      className="fixed left-0 top-0 z-30 hidden h-screen w-64 flex-col border-r border-line bg-white p-5 lg:flex"
       aria-label="Navigasi utama"
     >
-      {/* ── Brand ── */}
-      <div className="flex h-14 items-center gap-2.5 border-b border-line px-5">
-        <div
-          className="flex h-7 w-7 items-center justify-center rounded-lg bg-forest text-white"
-          aria-hidden="true"
-        >
-          <span className="text-xs font-bold leading-none">GG</span>
-        </div>
-        <div className="leading-tight">
-          <p className="text-sm font-semibold text-forest">GO GREEN</p>
-          <p className="text-xs text-muted">{label}</p>
-        </div>
-      </div>
+      <Logo />
 
       {/* ── Nav links ── */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="space-y-0.5" role="list">
-          {nav.map((item) => {
-            const Icon = item.icon;
+      <nav
+        className="mt-8 flex-1 space-y-1 overflow-y-auto"
+        aria-label={`Menu ${label}`}
+      >
+        {nav.map((item) => {
+          const Icon = item.icon;
 
-            const exact = item.href.endsWith('dashboard') || item.href.endsWith('new');
-            const isActive = exact
-              ? pathname === item.href
-              : pathname === item.href || pathname.startsWith(item.href + '/');
+          const exact = item.href.endsWith('dashboard') || item.href.endsWith('new');
+          const isActive = exact
+            ? pathname === item.href
+            : pathname === item.href || pathname.startsWith(item.href + '/');
 
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={[
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium',
-                    'transition-colors',
-                    isActive
-                      ? 'bg-mist text-forest'
-                      : 'text-muted hover:bg-mist hover:text-forest',
-                  ].join(' ')}
-                >
-                  <Icon
-                    size={16}
-                    strokeWidth={isActive ? 2.25 : 1.75}
-                    aria-hidden="true"
-                    className="shrink-0"
-                  />
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive ? 'page' : undefined}
+              className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${isActive ? 'bg-forest text-white' : 'text-ink/80 hover:bg-mist'
+                }`}
+            >
+              <Icon className="size-5" aria-hidden />
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
 
-      {/* ── User info + logout ── */}
+      {/* ── Profile card + logout ── */}
       {user && (
-        <div className="border-t border-line px-3 py-3">
-          <div className="mb-1.5 flex items-center gap-2.5 px-2 py-1">
+        <div className="mt-4 rounded-2xl bg-mist p-4">
+          <div className="flex items-center gap-3">
             <div
-              className="flex h-7 w-7 shrink-0 items-center justify-center
-                         rounded-full bg-mist text-xs font-semibold text-forest"
               aria-hidden="true"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-forest text-sm font-semibold text-white"
             >
               {user.name.charAt(0).toUpperCase()}
             </div>
-            <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-ink">{user.name}</p>
-              <p className="truncate text-[11px] capitalize text-muted">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold leading-tight text-ink">
+                {user.name}
+              </p>
+              <p className="text-xs capitalize leading-tight text-muted">
                 {user.role.replace('_', ' ')}
               </p>
             </div>
           </div>
+
           <button
             type="button"
             onClick={logout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm
-                       font-medium text-muted transition-colors
-                       hover:bg-danger-soft hover:text-danger"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold text-forest transition-colors hover:bg-white/60"
           >
-            <LogOut size={16} aria-hidden="true" className="shrink-0" />
+            <LogOut className="size-3.5" aria-hidden />
             Keluar
           </button>
         </div>

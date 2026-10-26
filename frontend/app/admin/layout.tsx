@@ -1,5 +1,5 @@
 import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar }  from '@/components/layout/Topbar';
+import { Topbar } from '@/components/layout/Topbar';
 
 export const instant = false;
 
@@ -9,15 +9,14 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-paper">
+    <div className="min-h-screen bg-paper">
       {/* variant adalah string plain — aman dilewat dari Server → Client Component */}
       <Sidebar variant="developer" />
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar />
+      <div className="min-w-0 lg:ml-64">
         <main
           id="main-content"
-          className="flex-1 overflow-y-auto p-6"
+          className="mx-auto w-full max-w-[1600px] p-5 pb-28 sm:p-8 lg:px-10 lg:py-8 lg:pb-10"
           tabIndex={-1}
         >
           {children}
