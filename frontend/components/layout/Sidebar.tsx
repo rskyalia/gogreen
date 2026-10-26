@@ -12,7 +12,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LogOut } from 'lucide-react';
 import { WASTE_BANK_NAV, DEVELOPER_NAV } from '@/lib/navigation';
+import { useAuth } from '@/context/AuthContext';
 import type { NavItem } from '@/lib/navigation';
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -20,12 +22,11 @@ import type { NavItem } from '@/lib/navigation';
 export type SidebarVariant = 'waste_bank' | 'developer';
 
 interface SidebarProps {
-  variant:   SidebarVariant;
-  /** Sub-label di bawah brand "GO GREEN" */
-  section?:  string;
+  variant:  SidebarVariant;
+  section?: string;
 }
 
-// ── Nav map (resolved di client, tidak di-serialize dari server) ───────────
+// ── Nav map ────────────────────────────────────────────────────────────────
 
 const NAV_MAP: Record<SidebarVariant, NavItem[]> = {
   waste_bank: WASTE_BANK_NAV,
@@ -40,9 +41,10 @@ const SECTION_MAP: Record<SidebarVariant, string> = {
 // ── Component ─────────────────────────────────────────────────────────────
 
 export function Sidebar({ variant, section }: SidebarProps) {
-  const pathname  = usePathname();
-  const nav       = NAV_MAP[variant];
-  const label     = section ?? SECTION_MAP[variant];
+  const pathname        = usePathname();
+  const { user, logout } = useAuth();
+  const nav             = NAV_MAP[variant];
+  const label           = section ?? SECTION_MAP[variant];
 
   return (
     <aside
@@ -69,10 +71,6 @@ export function Sidebar({ variant, section }: SidebarProps) {
           {nav.map((item) => {
             const Icon = item.icon;
 
-            /*
-             * exact-match untuk dashboard (agar tidak aktif di semua sub-route)
-             * dan untuk /new (agar tidak bentrok dengan parent /deposits).
-             */
             const exact = item.href.endsWith('dashboard') || item.href.endsWith('new');
             const isActive = exact
               ? pathname === item.href
@@ -104,6 +102,37 @@ export function Sidebar({ variant, section }: SidebarProps) {
           })}
         </ul>
       </nav>
+
+      {/* ── User info + logout ── */}
+      {user && (
+        <div className="border-t border-line px-3 py-3">
+          <div className="mb-1.5 flex items-center gap-2.5 px-2 py-1">
+            <div
+              className="flex h-7 w-7 shrink-0 items-center justify-center
+                         rounded-full bg-mist text-xs font-semibold text-forest"
+              aria-hidden="true"
+            >
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-ink">{user.name}</p>
+              <p className="truncate text-[11px] capitalize text-muted">
+                {user.role.replace('_', ' ')}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm
+                       font-medium text-muted transition-colors
+                       hover:bg-danger-soft hover:text-danger"
+          >
+            <LogOut size={16} aria-hidden="true" className="shrink-0" />
+            Keluar
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
