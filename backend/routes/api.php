@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WasteBankController as AdminWasteBankController;
 use App\Http\Controllers\Api\AiCraftRecommendationController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Community\DashboardController;
 use App\Http\Controllers\User\MemberCardController;
 use App\Http\Controllers\User\NotificationController;
 use App\Http\Controllers\User\PointLedgerController;
@@ -116,7 +117,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Community ─────────────────────────────────────────────────────────
     Route::middleware('role:community')->prefix('community')->group(function () {
-        // Fase berikutnya: diy-guides, material-requests (dari sisi community)
+        Route::get('dashboard', DashboardController::class);
+        Route::get('material-requests', [App\Http\Controllers\Community\MaterialRequestController::class, 'index']);
+        Route::post('material-requests', [App\Http\Controllers\Community\MaterialRequestController::class, 'store']);
+        Route::patch('material-requests/{id}', [App\Http\Controllers\Community\MaterialRequestController::class, 'update']);
+        Route::delete('material-requests/{id}', [App\Http\Controllers\Community\MaterialRequestController::class, 'destroy']);
     });
 
     // ── Developer ─────────────────────────────────────────────────────────
@@ -165,8 +170,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('diy-guides/{id}', [DiyGuideController::class, 'destroy']);
     });
 
-    // Developer saja — validasi karya
-    Route::middleware('role:developer')->prefix('admin')->group(function () {
+    // Developer + Community — validasi karya
+    Route::middleware('role:developer,community')->prefix('admin')->group(function () {
         Route::get('diy-submissions', [DiySubmissionController::class, 'index']);
         Route::patch('diy-submissions/{id}/review', [DiySubmissionController::class, 'review']);
     });
