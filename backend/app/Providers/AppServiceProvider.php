@@ -37,6 +37,18 @@ class AppServiceProvider extends ServiceProvider
                 ->by(optional($request->user())->id ?: $request->ip())
                 ->response(fn () => response()->json([
                     'message' => 'Terlalu banyak permintaan token. Coba lagi sebentar.',
+                    'code' => 'rate_limited',
+                    'errors' => [],
+                ], 429));
+        });
+
+        // Rate limiter untuk lookup member oleh petugas — 30 per menit per akun
+        RateLimiter::for('member-lookup', function (Request $request) {
+            return Limit::perMinute(30)
+                ->by(optional($request->user())->id ?: $request->ip())
+                ->response(fn () => response()->json([
+                    'message' => 'Terlalu banyak percobaan lookup. Coba lagi dalam 1 menit.',
+                    'code' => 'rate_limited',
                     'errors' => [],
                 ], 429));
         });

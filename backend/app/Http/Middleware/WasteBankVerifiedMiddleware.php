@@ -31,6 +31,7 @@ class WasteBankVerifiedMiddleware
         if (! $wasteBank) {
             return response()->json([
                 'message' => 'Forbidden. Data bank sampah tidak ditemukan untuk akun ini.',
+                'code' => 'bank_not_verified',
                 'errors' => ['verification' => ['Akun bank sampah tidak terdaftar.']],
             ], 403);
         }
@@ -45,6 +46,7 @@ class WasteBankVerifiedMiddleware
 
             return response()->json([
                 'message' => $message,
+                'code' => 'bank_not_verified',
                 'errors' => ['verification' => [$message]],
             ], 403);
         }

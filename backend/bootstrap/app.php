@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\ApiException;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Middleware\WasteBankVerifiedMiddleware;
 use Illuminate\Foundation\Application;
@@ -32,11 +33,23 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson()
         );
 
-        // Format error validasi konsisten: { message, errors }
+        // Format error domain dengan kode mesin: { message, code, errors }
+        $exceptions->render(function (ApiException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'code' => $e->errorCode,
+                    'errors' => $e->errors,
+                ], $e->status);
+            }
+        });
+
+        // Format error validasi konsisten: { message, code, errors }
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'message' => 'Data yang diberikan tidak valid.',
+                    'code' => 'validation_error',
                     'errors' => $e->errors(),
                 ], 422);
             }

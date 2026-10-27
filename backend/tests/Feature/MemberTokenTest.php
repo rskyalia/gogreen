@@ -6,8 +6,10 @@ use App\Http\Controllers\User\MemberCardController;
 use App\Models\User;
 use App\Models\WasteBank;
 use App\Models\WasteCategory;
+use App\Services\QrTokenService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class MemberTokenTest extends TestCase
@@ -68,9 +70,12 @@ class MemberTokenTest extends TestCase
         $token = $response->json('data.token');
         $this->assertSame(32, strlen($token));
 
-        // Harus tersimpan di cache
-        $cachedUserId = Cache::get(MemberCardController::tokenCacheKey($token));
-        $this->assertSame($this->member->id, $cachedUserId);
+        // Harus tersimpan di cache sebagai payload token (bukan sekadar user id)
+        $cached = Cache::get(MemberCardController::tokenCacheKey($token));
+        $this->assertIsArray($cached);
+        $this->assertSame($this->member->id, $cached['user_id']);
+        $this->assertSame('active', $cached['status']);
+        $this->assertNotEmpty($cached['expires_at']);
     }
 
     public function test_generating_new_token_invalidates_old_one(): void
@@ -92,6 +97,20 @@ class MemberTokenTest extends TestCase
         $this->assertNotNull(Cache::get(MemberCardController::tokenCacheKey($second)));
     }
 
+    public function test_token_generation_is_rate_limited(): void
+    {
+        for ($i = 0; $i < 10; $i++) {
+            $this->actingAs($this->member)
+                ->postJson('/api/user/member-token')
+                ->assertOk();
+        }
+
+        $this->actingAs($this->member)
+            ->postJson('/api/user/member-token')
+            ->assertStatus(429)
+            ->assertJsonPath('code', 'rate_limited');
+    }
+
     // ── GET /api/waste-bank/members/lookup?code=<token> ──────────────────
 
     public function test_officer_can_lookup_member_by_token(): void
@@ -101,7 +120,21 @@ class MemberTokenTest extends TestCase
             ->json('data.token');
 
         $this->actingAs($this->officer)
-            ->getJson('/api/waste-bank/members/lookup?code='.$token)
+            ->getJson('/api/waste-bank/members/lookup?token='.$token)
+            ->assertOk()
+            ->assertJsonPath('data.id', $this->member->id)
+            ->assertJsonMissingPath('data.email')
+            ->assertJsonMissingPath('data.phone')
+            ->assertJsonMissingPath('data.points_balance')
+            ->assertJsonStructure(['data' => ['id', 'name', 'avatar', 'member_code'], 'claim_expires_at']);
+
+        $this->assertSame('claimed', $this->qrStatus($token));
+    }
+
+    public function test_officer_can_lookup_member_by_code(): void
+    {
+        $this->actingAs($this->officer)
+            ->getJson('/api/waste-bank/members/lookup?code='.$this->member->member_code)
             ->assertOk()
             ->assertJsonPath('data.id', $this->member->id)
             ->assertJsonMissingPath('data.email')
@@ -113,9 +146,22 @@ class MemberTokenTest extends TestCase
         $fakeToken = str_repeat('x', 32);
 
         $this->actingAs($this->officer)
-            ->getJson('/api/waste-bank/members/lookup?code='.$fakeToken)
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.identifier.0', 'Token QR tidak valid atau sudah kedaluwarsa.');
+            ->getJson('/api/waste-bank/members/lookup?token='.$fakeToken)
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'token_expired');
+    }
+
+    public function test_unknown_member_code_returns_404(): void
+    {
+        $this->actingAs($this->officer)
+            ->getJson('/api/waste-bank/members/lookup?code=GG-NOTFND')
+            ->assertNotFound()
+            ->assertJsonPath('code', 'user_not_found');
+    }
+
+    private function qrStatus(string $token): string
+    {
+        return app(QrTokenService::class)->status($token)['status'];
     }
 
     // ── POST /api/waste-bank/deposits — token sebagai identitas ──────────
@@ -126,9 +172,15 @@ class MemberTokenTest extends TestCase
             ->postJson('/api/user/member-token')
             ->json('data.token');
 
+        // Token harus diklaim lewat lookup sebelum dipakai untuk setoran.
+        $this->actingAs($this->officer)
+            ->getJson('/api/waste-bank/members/lookup?token='.$token)
+            ->assertOk();
+
         $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
-                'member_token' => $token,
+                'token' => $token,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [
                     ['waste_category_id' => $this->category->id, 'weight_kg' => 2.0],
                 ],
@@ -138,6 +190,7 @@ class MemberTokenTest extends TestCase
 
         // Setelah berhasil, token harus hangus
         $this->assertNull(Cache::get(MemberCardController::tokenCacheKey($token)));
+        $this->assertNotNull(Cache::get(QrTokenService::usedKey($token)));
     }
 
     public function test_token_cannot_be_used_twice(): void
@@ -146,10 +199,15 @@ class MemberTokenTest extends TestCase
             ->postJson('/api/user/member-token')
             ->json('data.token');
 
+        $this->actingAs($this->officer)
+            ->getJson('/api/waste-bank/members/lookup?token='.$token)
+            ->assertOk();
+
         // Pemakaian pertama — berhasil
         $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
-                'member_token' => $token,
+                'token' => $token,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [['waste_category_id' => $this->category->id, 'weight_kg' => 1.0]],
             ])
             ->assertCreated();
@@ -157,11 +215,12 @@ class MemberTokenTest extends TestCase
         // Pemakaian kedua — harus ditolak
         $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
-                'member_token' => $token,
+                'token' => $token,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [['waste_category_id' => $this->category->id, 'weight_kg' => 1.0]],
             ])
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.identifier.0', 'Token QR tidak valid atau sudah kedaluwarsa.');
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'token_used');
 
         // Pastikan hanya 1 deposit yang tercatat
         $this->assertDatabaseCount('deposits', 1);
@@ -173,11 +232,12 @@ class MemberTokenTest extends TestCase
 
         $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
-                'member_token' => $fakeToken,
+                'token' => $fakeToken,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [['waste_category_id' => $this->category->id, 'weight_kg' => 1.0]],
             ])
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.identifier.0', 'Token QR tidak valid atau sudah kedaluwarsa.');
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'token_expired');
 
         $this->assertDatabaseCount('deposits', 0);
     }
@@ -187,6 +247,7 @@ class MemberTokenTest extends TestCase
         $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
                 'member_code' => $this->member->member_code,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [['waste_category_id' => $this->category->id, 'weight_kg' => 1.5]],
             ])
             ->assertCreated()

@@ -51,11 +51,9 @@ function WasteBankLayoutContent({
     <div className="min-h-screen bg-paper">
       {/* ── Sidebar desktop ── */}
       <aside className="fixed left-0 top-0 z-30 hidden h-screen w-64 flex-col border-r border-line bg-white p-5 lg:flex">
-        <div className="flex items-center justify-between">
-          <Logo />
-        </div>
+        <Logo />
 
-        <nav className="mt-8 space-y-1" aria-label="Menu bank sampah">
+        <nav className="mt-8 flex-1 space-y-1 overflow-y-auto" aria-label="Menu bank sampah">
           {WASTE_BANK_NAV.map((item) => {
             const Icon = item.icon;
             const on = isActivePath(pathname, item.href);

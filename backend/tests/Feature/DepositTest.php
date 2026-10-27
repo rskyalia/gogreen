@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\WasteBank;
 use App\Models\WasteCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class DepositTest extends TestCase
@@ -54,7 +55,7 @@ class DepositTest extends TestCase
         $this->actingAs($this->officer)
             ->getJson('/api/waste-bank/members/lookup?code=GG-INVALID')
             ->assertUnprocessable()
-            ->assertJsonPath('errors.identifier.0', 'Member dengan kode tersebut tidak ditemukan.');
+            ->assertJsonPath('code', 'token_invalid');
     }
 
     public function test_banned_member_cannot_be_found(): void
@@ -63,8 +64,8 @@ class DepositTest extends TestCase
 
         $this->actingAs($this->officer)
             ->getJson('/api/waste-bank/members/lookup?code='.$banned->member_code)
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.identifier.0', 'Akun member ini telah diblokir.');
+            ->assertForbidden()
+            ->assertJsonPath('code', 'user_banned');
     }
 
     public function test_non_user_role_member_code_is_rejected(): void
@@ -88,6 +89,7 @@ class DepositTest extends TestCase
     {
         $payload = [
             'member_code' => $this->member->member_code,
+            'client_request_id' => Str::uuid()->toString(),
             'items' => [
                 ['waste_category_id' => $this->category->id, 'weight_kg' => 2.5],
             ],
@@ -130,6 +132,7 @@ class DepositTest extends TestCase
         $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
                 'member_code' => $this->member->member_code,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [
                     ['waste_category_id' => $this->category->id, 'weight_kg' => 1.3],
                 ],
@@ -146,6 +149,7 @@ class DepositTest extends TestCase
         $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
                 'member_code' => $this->member->member_code,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [
                     ['waste_category_id' => $this->category->id, 'weight_kg' => 1.0], // 10 pts
                     ['waste_category_id' => $cat2->id,           'weight_kg' => 1.0], // 20 pts
@@ -166,11 +170,13 @@ class DepositTest extends TestCase
         $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
                 'member_code' => $this->member->member_code,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [
                     ['waste_category_id' => $otherCat->id, 'weight_kg' => 1.0],
                 ],
             ])
             ->assertUnprocessable()
+            ->assertJsonPath('code', 'category_not_accepted')
             ->assertJsonPath('errors.items.0', 'Beberapa kategori tidak diterima oleh bank sampah ini.');
 
         // Pastikan tidak ada data yang tersimpan
@@ -189,11 +195,13 @@ class DepositTest extends TestCase
         $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
                 'member_code' => $banned->member_code,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [
                     ['waste_category_id' => $this->category->id, 'weight_kg' => 1.0],
                 ],
             ])
-            ->assertUnprocessable();
+            ->assertForbidden()
+            ->assertJsonPath('code', 'user_banned');
 
         $this->assertDatabaseCount('deposits', 0);
     }
@@ -206,6 +214,7 @@ class DepositTest extends TestCase
         $this->actingAs($pendingOfficer)
             ->postJson('/api/waste-bank/deposits', [
                 'member_code' => $this->member->member_code,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [
                     ['waste_category_id' => $this->category->id, 'weight_kg' => 1.0],
                 ],
@@ -218,9 +227,11 @@ class DepositTest extends TestCase
         $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
                 'member_code' => $this->member->member_code,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [],
             ])
             ->assertUnprocessable()
+            ->assertJsonPath('code', 'validation_error')
             ->assertJsonPath('errors.items.0', 'Minimal satu item sampah harus diisi.');
     }
 
@@ -233,6 +244,7 @@ class DepositTest extends TestCase
         $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
                 'member_code' => $this->member->member_code,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [
                     ['waste_category_id' => $otherCat->id, 'weight_kg' => 1.0],
                 ],

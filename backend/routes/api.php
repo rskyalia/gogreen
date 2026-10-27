@@ -64,8 +64,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('status', [ProfileController::class, 'toggleStatus']);
             Route::put('categories', [ProfileController::class, 'syncCategories']);
 
-            // Member lookup — query string ?code= menerima member_code atau token
-            Route::get('members/lookup', [DepositController::class, 'findMember']);
+            // Member lookup — ?token= (QR) atau ?code= (manual, cadangan)
+            Route::middleware('throttle:member-lookup')->get('members/lookup', [DepositController::class, 'findMember']);
+
+            // Kategori yang diterima bank ini
+            Route::get('deposit-categories', [DepositController::class, 'depositCategories']);
 
             // Setoran — export harus sebelum {id} agar tidak terambil sebagai param
             Route::get('deposits/export', [DepositController::class, 'export']);
@@ -88,10 +91,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:user')->prefix('user')->group(function () {
         Route::get('member-card', [MemberCardController::class, 'show']);
         Route::middleware('throttle:member-token')->post('member-token', [MemberCardController::class, 'generateToken']);
+        Route::get('member-token/status', [MemberCardController::class, 'tokenStatus']);
 
         Route::get('summary', SummaryController::class);
 
         Route::get('deposits', [UserDepositController::class, 'index']);
+        Route::post('deposits', [UserDepositController::class, 'store']);
         Route::get('deposits/{id}', [UserDepositController::class, 'show']);
 
         Route::get('points', PointLedgerController::class);

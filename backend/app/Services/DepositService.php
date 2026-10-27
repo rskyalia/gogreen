@@ -2,53 +2,50 @@
 
 namespace App\Services;
 
-use App\Http\Controllers\User\MemberCardController;
+use App\Exceptions\ApiException;
 use App\Models\Deposit;
-use App\Models\DepositItem;
 use App\Models\User;
 use App\Models\WasteBank;
-use App\Models\WasteCategory;
 use App\Notifications\DepositRecorded;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
+/**
+ * DepositService
+ *
+ * Mengelola pembuatan setoran sampah dengan:
+ *   - Idempotency via client_request_id
+ *   - Integrasi QrTokenService untuk token QR
+ *   - DB::transaction dengan lockForUpdate
+ *   - PointService untuk kredit poin
+ */
 class DepositService
 {
-    public function __construct(private readonly PointService $pointService) {}
+    private const IDEMPOTENCY_TTL_SEC = 10 * 60; // 10 menit
+
+    public function __construct(
+        private readonly PointService $pointService,
+        private readonly QrTokenService $qrTokenService,
+    ) {}
+
+    // ── Cari member ───────────────────────────────────────────────────────
 
     /**
-     * Cari member berdasarkan member_code ATAU token QR sekali pakai.
-     *
-     * Logika resolusi:
-     *   - Jika $identifier diawali "GG-" → perlakukan sebagai member_code.
-     *   - Selain itu → perlakukan sebagai token QR; cari user_id di cache.
-     *
-     * Mengembalikan User jika valid; melempar ValidationException jika tidak.
+     * Cari member berdasarkan member_code (format GG-XXXXXX).
      *
      * @throws ValidationException
      */
-    public function findMember(string $identifier): User
-    {
-        if (str_starts_with(strtoupper($identifier), 'GG-')) {
-            return $this->findMemberByCode($identifier);
-        }
-
-        return $this->findMemberByToken($identifier);
-    }
-
-    /**
-     * Cari member berdasarkan member_code.
-     *
-     * @throws ValidationException
-     */
-    private function findMemberByCode(string $memberCode): User
+    public function findMember(string $memberCode): User
     {
         $user = User::where('member_code', strtoupper($memberCode))->first();
 
         if (! $user) {
             throw ValidationException::withMessages([
-                'identifier' => ['Member dengan kode tersebut tidak ditemukan.'],
+                'code' => ['Member dengan kode tersebut tidak ditemukan.'],
             ]);
         }
 
@@ -57,186 +54,306 @@ class DepositService
         return $user;
     }
 
-    /**
-     * Cari member berdasarkan token QR.
-     * Token tidak dihanguskan di sini — penghangusan dilakukan di dalam transaksi store().
-     *
-     * @throws ValidationException
-     */
-    private function findMemberByToken(string $token): User
-    {
-        $cacheKey = MemberCardController::tokenCacheKey($token);
-        $userId = Cache::get($cacheKey);
-
-        if (! $userId) {
-            throw ValidationException::withMessages([
-                'identifier' => ['Token QR tidak valid atau sudah kedaluwarsa.'],
-            ]);
-        }
-
-        $user = User::find($userId);
-
-        if (! $user) {
-            throw ValidationException::withMessages([
-                'identifier' => ['Token QR tidak valid atau sudah kedaluwarsa.'],
-            ]);
-        }
-
-        $this->assertValidMember($user);
-
-        return $user;
-    }
-
-    /**
-     * Validasi bahwa user adalah anggota aktif yang tidak diblokir.
-     *
-     * @throws ValidationException
-     */
     private function assertValidMember(User $user): void
     {
-        if ($user->role !== 'user') {
+        if ($user->isBanned()) {
             throw ValidationException::withMessages([
-                'identifier' => ['Identitas yang diberikan bukan milik anggota.'],
+                'banned' => ['Akun member ini telah diblokir.'],
             ]);
         }
 
-        if ($user->isBanned()) {
+        if ($user->role !== 'user') {
             throw ValidationException::withMessages([
-                'identifier' => ['Akun member ini telah diblokir.'],
+                'role' => ['Identitas yang diberikan bukan milik anggota.'],
             ]);
         }
     }
 
+    // ── Buat setoran ──────────────────────────────────────────────────────
+
     /**
-     * Simpan setoran baru dalam satu transaksi database.
+     * Simpan setoran baru dengan idempotency check.
      *
-     * Alur di dalam transaction:
-     *   1. Lock baris user (lockForUpdate)
-     *   2. Hitung poin per item = round(weight_kg × category.points_per_kg)
-     *   3. Buat Deposit header + DepositItem per baris
-     *   4. Kredit poin ke user + catat PointTransaction
-     *
-     * @param  WasteBank  $wasteBank  Bank sampah petugas
-     * @param  User  $recorder  Petugas yang mencatat
      * @param  array{
-     *           member_code: string,
-     *           notes: ?string,
-     *           items: list<array{waste_category_id: int, weight_kg: float}>
-     *         }                        $data        Data tervalidasi dari FormRequest
-     * @return Deposit Deposit yang sudah dimuat relasi
+     *   token?: string,
+     *   member_code?: string,
+     *   notes?: string,
+     *   client_request_id: string,
+     *   items: list<array{waste_category_id: int, weight_kg: float|string}>
+     * }  $data
      *
-     * @throws ValidationException
+     * @throws ApiException
      */
     public function store(WasteBank $wasteBank, User $recorder, array $data): Deposit
     {
-        // Ambil id kategori yang diterima bank ini
-        $acceptedCategoryIds = $wasteBank
-            ->acceptedCategories()
-            ->pluck('waste_categories.id')
-            ->toArray();
+        $clientRequestId = (string) $data['client_request_id'];
+        $idempotencyKey = 'deposit_idem:'.$wasteBank->id.':'.$clientRequestId;
+        $idempotencyLock = Cache::lock('deposit_idem_lock:'.$wasteBank->id.':'.$clientRequestId, 20);
 
-        // Validasi semua item — kategori harus ada di accepted list
-        $categoryIds = array_column($data['items'], 'waste_category_id');
-        $rejected = array_diff($categoryIds, $acceptedCategoryIds);
-
-        if (! empty($rejected)) {
-            throw ValidationException::withMessages([
-                'items' => ['Beberapa kategori tidak diterima oleh bank sampah ini.'],
-            ]);
+        try {
+            // Serialisasi request ganda dengan client_request_id yang sama.
+            $idempotencyLock->block(5);
+        } catch (LockTimeoutException) {
+            throw ApiException::make(
+                'request_in_progress',
+                'Setoran dengan permintaan ini sedang diproses. Tunggu sebentar.',
+                409,
+            );
         }
 
-        // Muat categories sekaligus untuk mengambil points_per_kg
-        $categories = WasteCategory::whereIn('id', $categoryIds)
-            ->get()
-            ->keyBy('id');
+        try {
+            $existing = $this->findIdempotentDeposit($wasteBank, $idempotencyKey);
 
-        $deposit = DB::transaction(function () use (
-            $wasteBank, $recorder, $data, $categories
-        ): Deposit {
-            // 1. Kunci baris user untuk mencegah race condition saldo
-            $identifier = $data['member_code'] ?? $data['member_token'];
-            $isToken = ! isset($data['member_code']);
+            if ($existing) {
+                return $existing;
+            }
 
-            if ($isToken) {
-                // Resolusi token → user_id (di dalam transaksi agar atomik)
-                $cacheKey = MemberCardController::tokenCacheKey($identifier);
-                $userId = Cache::get($cacheKey);
+            $categoryIds = array_map(
+                static fn (array $item): int => (int) $item['waste_category_id'],
+                $data['items'],
+            );
 
-                if (! $userId) {
-                    throw ValidationException::withMessages([
-                        'identifier' => ['Token QR tidak valid atau sudah kedaluwarsa.'],
-                    ]);
+            // ── Validasi duplikat kategori ────────────────────────────────
+            if (count($categoryIds) !== count(array_unique($categoryIds))) {
+                throw ApiException::make(
+                    'validation_error',
+                    'Tidak boleh ada kategori yang sama dalam satu setoran.',
+                    422,
+                    ['items' => ['Gabungkan berat kategori yang sama menjadi satu baris.']],
+                );
+            }
+
+            // ── Validasi kategori diterima bank & aktif ───────────────────
+            $categories = $wasteBank->acceptedCategories()
+                ->where('waste_categories.is_active', true)
+                ->whereIn('waste_categories.id', $categoryIds)
+                ->get()
+                ->keyBy('id');
+
+            if (array_diff($categoryIds, $categories->keys()->all()) !== []) {
+                throw ApiException::make(
+                    'category_not_accepted',
+                    'Beberapa kategori tidak diterima oleh bank sampah ini.',
+                    422,
+                    ['items' => ['Beberapa kategori tidak diterima oleh bank sampah ini.']],
+                );
+            }
+
+            $token = $data['token'] ?? null;
+            $tokenPayload = null;
+            $tokenLock = null;
+
+            if (filled($token)) {
+                $tokenLock = Cache::lock(QrTokenService::lockKey((string) $token), 15);
+
+                if (! $tokenLock->get()) {
+                    throw ApiException::make(
+                        'token_claimed_by_other',
+                        'Token QR sedang diproses oleh bank sampah lain.',
+                        409,
+                    );
                 }
 
-                $member = User::where('id', $userId)->lockForUpdate()->firstOrFail();
-            } else {
-                $member = User::where('member_code', strtoupper($identifier))
-                    ->lockForUpdate()
-                    ->firstOrFail();
+                $tokenPayload = $this->assertTokenUsable((string) $token, $wasteBank->id);
             }
 
-            if ($member->isBanned()) {
-                throw ValidationException::withMessages([
-                    'identifier' => ['Akun member ini telah diblokir.'],
-                ]);
+            try {
+                $deposit = DB::transaction(function () use (
+                    $wasteBank,
+                    $recorder,
+                    $data,
+                    $categories,
+                    $token,
+                    $tokenPayload,
+                    $idempotencyKey,
+                ): Deposit {
+                    // a. Kunci baris user & validasi ulang di dalam transaksi.
+                    $member = $this->lockAndValidateMember($data, $tokenPayload);
+
+                    // b. Hitung poin per item.
+                    $totalWeight = 0.0;
+                    $totalPoints = 0;
+                    $itemsData = [];
+
+                    foreach ($data['items'] as $item) {
+                        $category = $categories[(int) $item['waste_category_id']];
+                        $weight = round((float) $item['weight_kg'], 2);
+                        $points = (int) round($weight * $category->points_per_kg);
+
+                        $totalWeight += $weight;
+                        $totalPoints += $points;
+
+                        $itemsData[] = [
+                            'waste_category_id' => $category->id,
+                            'weight_kg' => $weight,
+                            'points' => $points,
+                        ];
+                    }
+
+                    // c. Buat deposit & item.
+                    $deposit = Deposit::create([
+                        'waste_bank_id' => $wasteBank->id,
+                        'user_id' => $member->id,
+                        'recorded_by' => $recorder->id,
+                        'notes' => $data['notes'] ?? null,
+                        'total_weight_kg' => round($totalWeight, 3),
+                        'total_points' => $totalPoints,
+                    ]);
+
+                    $deposit->items()->createMany($itemsData);
+                    $deposit->load('wasteBank');
+
+                    // d + e. Tambah saldo & catat ledger dalam transaksi yang sama.
+                    $this->pointService->creditDeposit($member, $deposit, $totalPoints);
+
+                    $deposit = $deposit->loadMissing([
+                        'items.wasteCategory',
+                        'depositor',
+                        'recorder',
+                    ]);
+
+                    // Setelah commit: hanguskan token, simpan idempotency,
+                    // lalu kirim notifikasi. Semua efek samping dibungkus agar
+                    // kegagalan cache/notifikasi tidak membatalkan data setoran.
+                    DB::afterCommit(function () use ($token, $deposit, $idempotencyKey): void {
+                        try {
+                            if (filled($token)) {
+                                $this->qrTokenService->markUsed((string) $token, $deposit->id);
+                            }
+
+                            Cache::put($idempotencyKey, $deposit->id, self::IDEMPOTENCY_TTL_SEC);
+
+                            $deposit->depositor->notify(
+                                new DepositRecorded($deposit, $deposit->total_points),
+                            );
+                        } catch (Throwable $e) {
+                            Log::error('Efek samping setelah setoran gagal', [
+                                'deposit_id' => $deposit->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    });
+
+                    return $deposit;
+                });
+            } finally {
+                $tokenLock?->release();
             }
 
-            // 2. Hitung total berat & poin
-            $totalWeight = 0;
-            $totalPoints = 0;
-            $itemsData = [];
+            return $deposit;
+        } finally {
+            $idempotencyLock->release();
+        }
+    }
 
-            foreach ($data['items'] as $item) {
-                $cat = $categories[$item['waste_category_id']];
-                $points = (int) round($item['weight_kg'] * $cat->points_per_kg);
+    /**
+     * Ambil deposit sebelumnya untuk client_request_id yang sama.
+     */
+    private function findIdempotentDeposit(WasteBank $wasteBank, string $idempotencyKey): ?Deposit
+    {
+        $existingId = Cache::get($idempotencyKey);
 
-                $totalWeight += $item['weight_kg'];
-                $totalPoints += $points;
+        if (! $existingId) {
+            return null;
+        }
 
-                $itemsData[] = [
-                    'waste_category_id' => $cat->id,
-                    'weight_kg' => $item['weight_kg'],
-                    'points' => $points,
-                ];
-            }
+        return Deposit::with(['wasteBank', 'items.wasteCategory', 'depositor', 'recorder'])
+            ->where('waste_bank_id', $wasteBank->id)
+            ->find($existingId);
+    }
 
-            // 3. Buat header deposit
-            $deposit = Deposit::create([
-                'waste_bank_id' => $wasteBank->id,
-                'user_id' => $member->id,
-                'recorded_by' => $recorder->id,
-                'notes' => $data['notes'] ?? null,
-                'total_weight_kg' => $totalWeight,
-                'total_points' => $totalPoints,
-            ]);
+    /**
+     * Pastikan token masih claimed oleh bank sampah ini.
+     *
+     * @return array{user_id: int, status: string, waste_bank_id?: int, expires_at?: string}
+     *
+     * @throws ApiException
+     */
+    private function assertTokenUsable(string $token, int $wasteBankId): array
+    {
+        if ($this->qrTokenService->isUsed($token)) {
+            throw ApiException::make(
+                'token_used',
+                'Token QR sudah pernah digunakan.',
+                409,
+            );
+        }
 
-            // 4. Buat deposit items (bulk)
-            $deposit->items()->createMany($itemsData);
+        $payload = $this->qrTokenService->get($token);
 
-            // 5. Kredit poin + ledger
-            // Muat relasi wasteBank agar dipakai dalam description
-            $deposit->load('wasteBank');
-            $this->pointService->creditDeposit($member, $deposit, $totalPoints);
+        if (! $payload) {
+            throw ApiException::make(
+                'token_expired',
+                'Token QR telah kedaluwarsa.',
+                422,
+            );
+        }
 
-            // 6. Hanguskan token QR agar tidak dapat dipakai dua kali
-            if ($isToken) {
-                Cache::forget(MemberCardController::tokenCacheKey($identifier));
-                Cache::forget(MemberCardController::userTokenPointerKey($member->id));
-            }
+        if (($payload['status'] ?? null) === 'used') {
+            throw ApiException::make('token_used', 'Token QR sudah pernah digunakan.', 409);
+        }
 
-            // Muat semua relasi yang diperlukan oleh DepositResource
-            return $deposit->loadMissing([
-                'items.wasteCategory',
-                'depositor',
-                'recorder',
-            ]);
-        });
+        if (($payload['status'] ?? null) !== 'claimed') {
+            throw ApiException::make(
+                'token_invalid',
+                'Token QR belum dipindai oleh bank sampah ini.',
+                422,
+            );
+        }
 
-        // Notifikasi dikirim SETELAH transaksi commit agar tidak hilang bila
-        // transaksi dibatalkan karena exception.
-        $depositor = $deposit->depositor;
-        $depositor->notify(new DepositRecorded($deposit, $deposit->total_points));
+        if ((int) ($payload['waste_bank_id'] ?? 0) !== $wasteBankId) {
+            throw ApiException::make(
+                'token_claimed_by_other',
+                'Token QR sedang diproses oleh bank sampah lain.',
+                409,
+            );
+        }
 
-        return $deposit;
+        return $payload;
+    }
+
+    /**
+     * Kunci baris member dan validasi status/role.
+     *
+     * @param  array{member_code?: string}  $data
+     * @param  array{user_id: int}|null  $tokenPayload
+     *
+     * @throws ApiException
+     */
+    private function lockAndValidateMember(array $data, ?array $tokenPayload): User
+    {
+        if ($tokenPayload) {
+            $member = User::whereKey($tokenPayload['user_id'])->lockForUpdate()->first();
+        } else {
+            $member = User::where('member_code', strtoupper((string) ($data['member_code'] ?? '')))
+                ->lockForUpdate()
+                ->first();
+        }
+
+        if (! $member) {
+            throw ApiException::make(
+                'user_not_found',
+                'Akun member tidak ditemukan.',
+                404,
+            );
+        }
+
+        if (! $member->isActive()) {
+            throw ApiException::make(
+                'user_banned',
+                'Akun member ini tidak aktif atau telah diblokir.',
+                403,
+            );
+        }
+
+        if (! $member->isUser()) {
+            throw ApiException::make(
+                'user_not_found',
+                'Identitas yang diberikan bukan milik anggota.',
+                404,
+            );
+        }
+
+        return $member;
     }
 }

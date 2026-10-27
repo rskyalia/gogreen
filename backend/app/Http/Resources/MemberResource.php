@@ -21,7 +21,6 @@ class MemberResource extends JsonResource
             'avatar' => $this->avatar
                 ? asset('storage/'.$this->avatar)
                 : null,
-            'points_balance' => $this->points_balance,
         ];
     }
 }

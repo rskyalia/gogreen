@@ -9,6 +9,7 @@ use App\Models\WasteCategory;
 use App\Notifications\DepositRecorded;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class UserDashboardTest extends TestCase
@@ -45,6 +46,7 @@ class UserDashboardTest extends TestCase
         $response = $this->actingAs($this->officer)
             ->postJson('/api/waste-bank/deposits', [
                 'member_code' => $member->member_code,
+                'client_request_id' => Str::uuid()->toString(),
                 'items' => [['waste_category_id' => $this->category->id, 'weight_kg' => $kg]],
             ]);
 

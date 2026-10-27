@@ -7,6 +7,7 @@ import {
     LayoutDashboard,
     Leaf,
     LogOut,
+    Recycle,
     ScanLine,
     TrendingUp,
     Upload,
@@ -24,6 +25,7 @@ import DiyView from "./DIYview";
 import UploadView from "./SetoranView";
 import ImpactView from "./impactview";
 import EditProfileView from "./EditProfileView";
+import SetoranBuatView from "./SetoranBuatView";
 
 export type View =
     | "dashboard"
@@ -31,6 +33,7 @@ export type View =
     | "komunitas"
     | "upload"
     | "dampak"
+    | "setor"
     | "edit-profile";
 
 interface NotificationItem {
@@ -52,11 +55,12 @@ interface NotifResponse {
 }
 
 const nav: { key: View; label: string; Icon: LucideIcon }[] = [
-    { key: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
-    { key: "scan", label: "Scan Sampah", Icon: ScanLine },
+    { key: "dashboard", label: "Dashboard",     Icon: LayoutDashboard },
+    { key: "scan",      label: "Scan Sampah",   Icon: ScanLine },
+    { key: "setor",     label: "Setor Sampah",  Icon: Recycle },
     { key: "komunitas", label: "Komunitas DIY", Icon: Users },
-    { key: "upload", label: "Upload Karya", Icon: Upload },
-    { key: "dampak", label: "Dampak Saya", Icon: TrendingUp },
+    { key: "upload",    label: "Upload Karya",  Icon: Upload },
+    { key: "dampak",    label: "Dampak Saya",   Icon: TrendingUp },
 ];
 
 const POLL_INTERVAL_MS = 15_000;
@@ -358,6 +362,9 @@ export default function DashboardShell() {
                             submissions={submissions}
                             onUpload={() => go("upload")}
                         />
+                    )}
+                    {view === "setor" && (
+                        <SetoranBuatView onGoHistory={() => go("dampak")} />
                     )}
                     {view === "edit-profile" && (
                         <EditProfileView onBack={() => go("dashboard")} />
