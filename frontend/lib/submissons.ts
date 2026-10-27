@@ -1,75 +1,63 @@
-import { Container, Cylinder, Leaf, type LucideIcon } from "lucide-react";
+import { api, uploadForm } from "@/lib/api";
 
 export type SubmissionStatus = "pending" | "approved" | "rejected";
 
-// Dummy: ganti dengan data dari backend saat endpoint komunitas sudah ada
-export const COMMUNITIES = [
-    { id: "umum", name: "Semua komunitas DIY" },
-    { id: "bank-sampah-melati", name: "Komunitas Bank Sampah Melati" },
-];
-
-// Sementara hanya tampilan (belum terhubung ke backend).
-// Nanti bentuk ini bisa dipetakan dari respons endpoint karya milik user.
-export type Submission = {
-    id: string;
-    guideId: string;
+export interface ApiSubmissionResponse {
+    id: number | string;
+    user_id: number;
+    diy_guide_id: number;
+    proof_image: string;
+    notes: string | null;
     status: SubmissionStatus;
+    rejection_reason?: string | null;
+    created_at: string;
+    diy_guide?: {
+        id: number;
+        title: string;
+        points_reward: number;
+    };
+}
+
+export interface Submission {
+    id: string | number;
     title: string;
     category: string;
-    image: string | null; // URL foto; kosong = pakai sampul ikon
-    createdAt: string; // ISO
+    status: SubmissionStatus;
+    image: string | null;
+    createdAt: string;
     pointsAwarded: number;
     rewardPoints: number;
     reviewNote: string | null;
-    community?: string | null; // nama komunitas tujuan
     notes?: string | null;
-    isCustom?: boolean; // true = karya tulisan sendiri (bukan dari tutorial)
-    Icon: LucideIcon;
-    tone: string;
-};
+}
 
-// data contoh supaya ketiga status kelihatan
-export const SAMPLE_SUBMISSIONS: Submission[] = [
-    {
-        id: "s1",
-        guideId: "galon",
-        status: "approved",
-        title: "Pot bunga dari galon bekas",
-        category: "Plastik",
-        image: null,
-        createdAt: "2026-10-21T08:30:00.000Z",
-        pointsAwarded: 50,
-        rewardPoints: 50,
-        reviewNote: null,
-        Icon: Container,
-        tone: "bg-sun text-sun-ink",
-    },
-    {
-        id: "s2",
-        guideId: "kaleng",
-        status: "pending",
-        title: "Tempat pensil dari kaleng susu",
-        category: "Logam",
-        image: null,
-        createdAt: "2026-10-23T14:10:00.000Z",
-        pointsAwarded: 0,
-        rewardPoints: 40,
-        reviewNote: null,
-        Icon: Cylinder,
-        tone: "bg-mist text-forest",
-    },
-    {
-        id: "s3",
-        guideId: "organik",
-        status: "rejected",
-        title: "Kompos dari kulit buah",
-        category: "Organik",
-        image: null,
-        createdAt: "2026-10-18T10:00:00.000Z",
-        pointsAwarded: 0,
-        rewardPoints: 30,
-        reviewNote: "Foto kurang jelas, kompos belum terlihat.",
-        Icon: Leaf,
-        tone: "bg-leaf text-white",
-    },
+// 1. Ambil daftar karya milik user dari backend
+export async function fetchMySubmissions(): Promise<Submission[]> {
+    const res = await api.get<{ data: ApiSubmissionResponse[] }>("/user/diy-submissions");
+    const data = res.data ?? [];
+
+    return data.map((item) => ({
+        id: item.id,
+        title: item.diy_guide?.title || "Karya DIY",
+        category: "Karya Saya",
+        status: item.status,
+        image: item.proof_image ? `${process.env.NEXT_PUBLIC_STORAGE_URL}/${item.proof_image}` : null,
+        createdAt: item.created_at,
+        pointsAwarded: item.status === "approved" ? (item.diy_guide?.points_reward || 0) : 0,
+        rewardPoints: item.diy_guide?.points_reward || 0,
+        reviewNote: item.rejection_reason || null,
+        notes: item.notes,
+    }));
+}
+
+// 2. Kirim formdata karya ke backend
+export async function createSubmission(formData: FormData) {
+    const res = await uploadForm<{ data: ApiSubmissionResponse }>("/user/diy-submissions", formData);
+    return res.data;
+}
+
+export const COMMUNITIES = [
+    { id: "c1", name: "Komunitas Daur Ulang Plastik" },
+    { id: "c2", name: "Komunitas Kerajinan Kardus" },
+    { id: "c3", name: "Komunitas Pegiat Kompos" },
 ];

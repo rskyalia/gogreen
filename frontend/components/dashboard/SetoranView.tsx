@@ -2,10 +2,10 @@
 
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import Image from "next/image";
-import { Camera, CircleCheck, ImagePlus, Leaf } from "lucide-react";
+import { Camera, CircleCheck, ImagePlus, Loader2 } from "lucide-react";
 import { fetchTutorials, type Tutorial } from "@/lib/diy";
 import { categories } from "@/lib/tutorials";
-import { COMMUNITIES, type Submission } from "@/lib/submissons";
+import { COMMUNITIES, createSubmission } from "@/lib/submissons";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
@@ -39,12 +39,12 @@ function ModeChoice({
     );
 }
 
-export default function UploadView({
-    onSubmit,
+export default function SetoranView({
     onDone,
+    onSuccess,
 }: {
-    onSubmit: (s: Submission) => void;
     onDone: () => void;
+    onSuccess?: () => void;
 }) {
     const [guides, setGuides] = useState<Tutorial[]>([]);
     const [guidesState, setGuidesState] = useState<"loading" | "ready" | "error">("loading");
@@ -57,6 +57,7 @@ export default function UploadView({
     const [photo, setPhoto] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);
 
     useEffect(() => {
@@ -75,12 +76,8 @@ export default function UploadView({
     }, [preview]);
 
     const guide = guides.find((g) => g.id === guideId);
-    const community = COMMUNITIES.find((c) => c.id === communityId);
-
-    const hasWork =
-        mode === "guide" ? Boolean(guide) : customTitle.trim().length >= 3 && customCategory !== "";
-    // Hapus "&& Boolean(community)" kalau komunitas tujuan ingin dibuat opsional
-    const ready = hasWork && Boolean(photo) && Boolean(community);
+    const hasWork = mode === "guide" ? Boolean(guide) : customTitle.trim().length >= 3 && customCategory !== "";
+    const ready = hasWork && Boolean(photo) && Boolean(communityId);
 
     const onPick = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -95,44 +92,32 @@ export default function UploadView({
         setPreview(URL.createObjectURL(file));
     };
 
-    const submit = (e: FormEvent) => {
+    const submit = async (e: FormEvent) => {
         e.preventDefault();
         if (!ready || !photo) return;
 
-        const common = {
-            id: `local-${Date.now()}`,
-            status: "pending" as const,
-            image: URL.createObjectURL(photo),
-            createdAt: new Date().toISOString(),
-            pointsAwarded: 0,
-            reviewNote: null,
-            community: community?.name ?? null,
-            notes: notes.trim() || null,
-        };
+        setLoading(true);
+        setError("");
 
-        if (mode === "guide" && guide) {
-            onSubmit({
-                ...common,
-                guideId: guide.id,
-                title: guide.title,
-                category: guide.category,
-                rewardPoints: guide.rewardPoints,
-                Icon: guide.Icon,
-                tone: guide.tone,
-            });
-        } else {
-            onSubmit({
-                ...common,
-                guideId: "custom",
-                isCustom: true,
-                title: customTitle.trim(),
-                category: customCategory,
-                rewardPoints: 0, // karya sendiri: poin ditentukan saat validasi
-                Icon: Leaf,
-                tone: "bg-mint text-forest",
-            });
+        try {
+            const formData = new FormData();
+            formData.append("proof_image", photo);
+            if (notes.trim()) {
+                formData.append("notes", notes.trim());
+            }
+
+            if (mode === "guide" && guideId) {
+                formData.append("diy_guide_id", guideId);
+            }
+
+            await createSubmission(formData);
+            setSent(true);
+            if (onSuccess) onSuccess();
+        } catch (err: any) {
+            setError(err?.message || "Gagal mengunggah karya. Pastikan koneksi internet stabil.");
+        } finally {
+            setLoading(false);
         }
-        setSent(true);
     };
 
     const reset = () => {
@@ -153,7 +138,7 @@ export default function UploadView({
                 <CircleCheck className="mx-auto size-14 text-leaf" aria-hidden />
                 <h1 className="mt-4 font-serif text-2xl font-medium text-forest">Karya terkirim</h1>
                 <p className="mt-2 text-sm leading-relaxed text-muted">
-                    Karyamu sedang menunggu validasi. Poin masuk setelah karya disetujui.
+                    Karyamu berhasil tersimpan dan sedang menunggu validasi. Poin masuk setelah karya disetujui.
                 </p>
                 <div className="mt-6 flex flex-wrap justify-center gap-3">
                     <button
@@ -238,7 +223,7 @@ export default function UploadView({
                             value={guideId}
                             onChange={(e) => setGuideId(e.target.value)}
                             disabled={guidesState !== "ready"}
-                            error={guidesState === "error" ? "Daftar tutorial gagal dimuat. Coba muat ulang halaman." : undefined}
+                            error={guidesState === "error" ? "Daftar tutorial gagal dimuat." : undefined}
                             hint={
                                 guide
                                     ? `${guide.category}${guide.rewardPoints > 0 ? ` · +${guide.rewardPoints} poin kalau disetujui` : ""}`
@@ -287,7 +272,6 @@ export default function UploadView({
                         required
                         value={communityId}
                         onChange={(e) => setCommunityId(e.target.value)}
-                        hint="Pilih komunitas tujuan karyamu."
                     >
                         <option value="">Pilih komunitas</option>
                         {COMMUNITIES.map((c) => (
@@ -317,14 +301,12 @@ export default function UploadView({
                     <div>
                         <button
                             type="submit"
-                            disabled={!ready}
-                            className="rounded-xl bg-forest px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={!ready || loading}
+                            className="flex items-center gap-2 rounded-xl bg-forest px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                            Kirim karya
+                            {loading && <Loader2 className="size-4 animate-spin" />}
+                            {loading ? "Mengirim..." : "Kirim karya"}
                         </button>
-                        {!ready && (
-                            <p className="mt-2 text-xs text-muted">Lengkapi karya, foto, dan komunitas tujuan dulu.</p>
-                        )}
                     </div>
                 </section>
             </form>

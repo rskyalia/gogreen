@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
-import { SAMPLE_SUBMISSIONS, type Submission } from "@/lib/submissons";
+import { fetchMySubmissions, type Submission } from "@/lib/submissons";
 import OverviewView from "./overviewView";
 import ScanView from "./scanview";
 import DiyView from "./DIYview";
@@ -55,12 +55,12 @@ interface NotifResponse {
 }
 
 const nav: { key: View; label: string; Icon: LucideIcon }[] = [
-    { key: "dashboard", label: "Dashboard",     Icon: LayoutDashboard },
-    { key: "scan",      label: "Scan Sampah",   Icon: ScanLine },
-    { key: "setor",     label: "Setor Sampah",  Icon: Recycle },
+    { key: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
+    { key: "scan", label: "Scan Sampah", Icon: ScanLine },
+    { key: "setor", label: "Setor Sampah", Icon: Recycle },
     { key: "komunitas", label: "Komunitas DIY", Icon: Users },
-    { key: "upload",    label: "Upload Karya",  Icon: Upload },
-    { key: "dampak",    label: "Dampak Saya",   Icon: TrendingUp },
+    { key: "upload", label: "Upload Karya", Icon: Upload },
+    { key: "dampak", label: "Dampak Saya", Icon: TrendingUp },
 ];
 
 const POLL_INTERVAL_MS = 15_000;
@@ -83,7 +83,9 @@ export default function DashboardShell() {
     const { user, isLoading, logout } = useAuth();
     const [view, setView] = useState<View>("dashboard");
     const [diyId, setDiyId] = useState<string | null>(null);
-    const [submissions, setSubmissions] = useState<Submission[]>(SAMPLE_SUBMISSIONS);
+
+    // 1. Hapus SAMPLE_SUBMISSIONS dummy -> ganti array kosong
+    const [submissions, setSubmissions] = useState<Submission[]>([]);
 
     const [notifs, setNotifs] = useState<NotificationItem[]>([]);
     const [unread, setUnread] = useState(0);
@@ -92,6 +94,22 @@ export default function DashboardShell() {
     const panelRef = useRef<HTMLDivElement>(null);
 
     const isUserRole = user?.role === "user";
+
+    // 2. Fungsi untuk mengambil data karya milik user dari API
+    const loadSubmissions = useCallback(async () => {
+        if (!isUserRole) return;
+        try {
+            const data = await fetchMySubmissions();
+            setSubmissions(data);
+        } catch {
+            // Silently ignore if fails or handle error
+        }
+    }, [isUserRole]);
+
+    // Fetch karya ketika komponen dimuat
+    useEffect(() => {
+        loadSubmissions();
+    }, [loadSubmissions]);
 
     const fetchNotifications = useCallback(async () => {
         if (!isUserRole) return;
@@ -316,7 +334,7 @@ export default function DashboardShell() {
                 </div>
             </aside>
 
-            {/* ── MAIN CONTENT AREA (DIBERI MARGIN KIRIlg:ml-64) ── */}
+            {/* ── MAIN CONTENT AREA ── */}
             <div className="min-w-0 lg:ml-64">
                 {/* Mobile Header */}
                 <header className="flex h-14 items-center justify-between border-b border-line bg-white px-5 lg:hidden">
@@ -351,10 +369,12 @@ export default function DashboardShell() {
                     )}
                     {view === "scan" && <ScanView onOpenTutorial={openTutorial} />}
                     {view === "komunitas" && <DiyView initialId={diyId} />}
+
+                    {/* 3. Integrasikan UploadView & ImpactView dengan fungsi reload data */}
                     {view === "upload" && (
                         <UploadView
-                            onSubmit={(item) => setSubmissions((prev) => [item, ...prev])}
                             onDone={() => go("dampak")}
+                            onSuccess={loadSubmissions}
                         />
                     )}
                     {view === "dampak" && (

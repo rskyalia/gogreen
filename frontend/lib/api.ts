@@ -175,12 +175,66 @@ export async function downloadFile(path: string, filename: string): Promise<void
   }
 
   const blob = await res.blob();
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+
+/**
+ * Request khusus FormData (Upload File)
+ * Menghapus Content-Type JSON agar browser otomatis menyusun multipart boundary.
+ */
+export async function uploadForm<T>(path: string, formData: FormData): Promise<T> {
+  const token = getToken();
+
+  const headers: HeadersInit = {
+    Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') {
+      removeToken();
+      localStorage.removeItem('gg_user');
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+      }
+    }
+    const err: ApiError = {
+      message: 'Sesi Anda telah berakhir. Silakan login kembali.',
+      status: 401,
+    };
+    throw err;
+  }
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    body = {};
+  }
+
+  if (!res.ok) {
+    const err = body as { message?: string; errors?: Record<string, string[]> };
+    const apiError: ApiError = {
+      message: err.message ?? 'Terjadi kesalahan.',
+      errors: err.errors,
+      status: res.status,
+    };
+    throw apiError;
+  }
+
+  return body as T;
 }
