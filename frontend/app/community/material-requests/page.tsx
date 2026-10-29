@@ -50,6 +50,7 @@ export default function MaterialRequestsPage() {
 
   // Form State
   const [formData, setFormData] = useState({
+    permintaan_bahan: '',
     title: '',
     category: 'Plastik',
     quantity: '',
@@ -109,76 +110,118 @@ export default function MaterialRequestsPage() {
     }
   }, [isModalOpen, fetchWasteBanks]);
 
-  // Mock Data Permintaan Bahan
-  const [requests, setRequests] = useState<MaterialRequest[]>([
-    {
-      id: 1,
-      title: 'Dibutuhkan 50 Botol Plastik Bekas 1.5L',
-      category: 'Plastik',
-      quantity: '50 Botol',
-      requester: 'Bank Sampah Jaya',
-      targetBankSampah: 'Bank Sampah Jaya',
-      location: 'Kecamatan Ciracas, Jakarta Timur',
-      urgency: 'Tinggi',
-      status: 'Open',
-      createdAt: '12 Okt 2026',
-      description: 'Dibutuhkan untuk kegiatan workshop pembuatan pot tanaman hias warga.'
-    },
-    {
-      id: 2,
-      title: 'Dibutuhkan Kardus Tebal & Utuh 10 Kg',
-      category: 'Kertas & Kardus',
-      quantity: '10 Kg',
-      requester: 'Sanggar Kreasi Warga',
-      targetBankSampah: 'Bank Sampah Makmur',
-      location: 'Kecamatan Beji, Depok',
-      urgency: 'Sedang',
-      status: 'In Progress',
-      createdAt: '11 Okt 2026',
-      description: 'Bahan dasar pembuatan maket dan kotak penyimpanan serbaguna anak-anak sekolah.'
+  const [requests, setRequests] = useState<MaterialRequest[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+
+  const mapApiRequest = (item: any): MaterialRequest => ({
+    id: Number(item.id),
+    title: item.permintaan_bahan || item.title || item.notes || `Permintaan bahan daur ulang`,
+    category: item.category || item.waste_category?.name || 'Lainnya',
+    quantity: item.quantity || `${Number(item.quantity_needed_kg ?? 0)} kg`,
+    requester: item.requester || item.community?.name || 'Komunitas DIY',
+    targetBankSampah: item.target_bank_sampah || 'Bank Sampah Tujuan',
+    location: item.location || 'Jakarta',
+    urgency: item.urgency || 'Sedang',
+    status: item.status === 'fulfilled' ? 'Fulfilled' : 'Open',
+    createdAt: item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }) : 'Hari ini',
+    description: item.description || item.notes || 'Permintaan bahan daur ulang dari komunitas.',
+  });
+
+  const fetchRequests = useCallback(async (silent = false) => {
+    if (!silent) setIsLoadingRequests(true);
+
+    try {
+      const res = await api.get<{ data: any[] }>('/community/material-requests');
+      const list = Array.isArray(res.data) ? res.data : [];
+      setRequests(list.map(mapApiRequest));
+    } catch (error) {
+      console.error('Gagal memuat data material request dari database:', error);
+      setRequests([]);
+    } finally {
+      setIsLoadingRequests(false);
     }
-  ]);
+  }, []);
 
-  const handleStatusChange = (id: number, newStatus: 'Open' | 'In Progress' | 'Fulfilled') => {
-    setRequests(prev => prev.map(r => (r.id === id ? { ...r, status: newStatus } : r)));
-  };
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
 
-  const handleDelete = (id: number) => {
-    if (confirm('Apakah kamu yakin ingin menghapus permintaan bahan ini?')) {
-      setRequests(prev => prev.filter(r => r.id !== id));
-    }
-  };
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchRequests(true);
+    }, 15000);
 
-  const handleCreateRequest = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title || !formData.quantity) return;
+    return () => clearInterval(interval);
+  }, [fetchRequests]);
 
-    const newReq: MaterialRequest = {
-      id: Date.now(),
-      title: formData.title,
-      category: formData.category,
-      quantity: formData.quantity,
-      requester: formData.requester || 'Komunitas DIY',
-      targetBankSampah: formData.targetBankSampah || (bankSampahList[0]?.name ?? 'Bank Sampah Jaya'),
-      location: formData.location || 'DKI Jakarta',
-      urgency: formData.urgency,
-      status: 'Open',
-      createdAt: 'Hari ini',
-      description: formData.description || 'Membutuhkan bahan daur ulang untuk kegiatan kreasi.'
+  const handleStatusChange = async (id: number, newStatus: 'Open' | 'In Progress' | 'Fulfilled') => {
+    const statusMap: Record<'Open' | 'In Progress' | 'Fulfilled', 'open' | 'fulfilled' | 'closed'> = {
+      Open: 'open',
+      'In Progress': 'open',
+      Fulfilled: 'fulfilled',
     };
 
-    setRequests([newReq, ...requests]);
-    setIsModalOpen(false);
-    setFormData({
-      title: '',
-      category: 'Plastik',
-      quantity: '',
-      requester: 'Komunitas DIY',
-      targetBankSampah: bankSampahList[0]?.name || '',
-      location: '',
-      urgency: 'Sedang',
-      description: ''
-    });
+    try {
+      await api.patch(`/community/material-requests/${id}`, {
+        status: statusMap[newStatus],
+      });
+      await fetchRequests(true);
+    } catch (error) {
+      console.error('Gagal memperbarui status permintaan bahan:', error);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Apakah kamu yakin ingin menghapus permintaan bahan ini?')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/community/material-requests/${id}`);
+      await fetchRequests(true);
+    } catch (error) {
+      console.error('Gagal menghapus permintaan bahan:', error);
+    }
+  };
+
+  const handleCreateRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const permintaanBahan = formData.permintaan_bahan || formData.title;
+    if (!permintaanBahan || !formData.quantity) return;
+
+    try {
+      await api.post('/community/material-requests', {
+        permintaan_bahan: permintaanBahan,
+        title: permintaanBahan,
+        category: formData.category,
+        quantity: formData.quantity,
+        description: formData.description || 'Membutuhkan bahan daur ulang untuk kegiatan kreasi.',
+        requester: formData.requester || 'Komunitas DIY',
+        target_bank_sampah: formData.targetBankSampah || (bankSampahList[0]?.name ?? 'Bank Sampah Jaya'),
+        location: formData.location || 'DKI Jakarta',
+        urgency: formData.urgency,
+      });
+
+      await fetchRequests(true);
+      setIsModalOpen(false);
+      setFormData({
+        permintaan_bahan: '',
+        title: '',
+        category: 'Plastik',
+        quantity: '',
+        requester: 'Komunitas DIY',
+        targetBankSampah: bankSampahList[0]?.name || '',
+        location: '',
+        urgency: 'Sedang',
+        description: ''
+      });
+    } catch (error) {
+      console.error('Gagal membuat permintaan bahan:', error);
+    }
   };
 
   const filteredRequests = requests.filter(r => {
@@ -300,7 +343,16 @@ export default function MaterialRequestsPage() {
       </div>
 
       {/* Grid Kartu Request Bahan */}
-      {filteredRequests.length > 0 ? (
+      {isLoadingRequests ? (
+        <div className="bg-white rounded-2xl border border-[#d7e6dd] p-12 text-center space-y-3 shadow-2xs">
+          <div className="w-12 h-12 bg-[#e1f3e9] text-[#0b4d36] rounded-full flex items-center justify-center mx-auto">
+            <Loader2 className="w-6 h-6 animate-spin" />
+          </div>
+          <h3 className="text-base font-serif font-bold text-[#1d3b2f]">
+            Memuat data request bahan...
+          </h3>
+        </div>
+      ) : filteredRequests.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredRequests.map(item => (
             <div
@@ -442,8 +494,8 @@ export default function MaterialRequestsPage() {
                   type="text"
                   required
                   placeholder="Contoh: Dibutuhkan 50 Botol Kaca Bekas Marjan"
-                  value={formData.title}
-                  onChange={e => setFormData({ ...formData, title: e.target.value })}
+                  value={formData.permintaan_bahan || formData.title}
+                  onChange={e => setFormData({ ...formData, permintaan_bahan: e.target.value, title: e.target.value })}
                   className="w-full bg-[#f5faf7] border border-[#d7e6dd] rounded-xl px-3.5 py-2.5 text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-[#1f8a5b]"
                 />
               </div>

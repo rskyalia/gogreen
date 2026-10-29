@@ -20,6 +20,8 @@ import { PackageCheck, Send, Truck, RefreshCw } from 'lucide-react';
 
 interface MaterialRequest {
   id:                  number;
+  permintaan_bahan?:   string | null;
+  title?:              string | null;
   quantity_needed_kg:  number;
   notes:               string | null;
   status:              string;
@@ -111,6 +113,29 @@ export default function MaterialRequestsPage() {
   useEffect(() => { loadRequests(reqPage); }, [reqPage, loadRequests]);
   useEffect(() => { loadMyResponses(myPage); }, [myPage, loadMyResponses]);
 
+  const refreshAll = useCallback(async () => {
+    await Promise.allSettled([
+      loadRequests(reqPage),
+      loadMyResponses(myPage),
+    ]);
+  }, [loadRequests, loadMyResponses, reqPage, myPage]);
+
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshAll();
+      }
+    };
+
+    const interval = setInterval(tick, 15000);
+    document.addEventListener('visibilitychange', tick);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [refreshAll]);
+
   // ── Submit offer ──────────────────────────────────────────────────────
 
   async function handleSubmitOffer() {
@@ -131,8 +156,10 @@ export default function MaterialRequestsPage() {
       setOfferTarget(null);
       setOfferKg('');
       setOfferNotes('');
-      loadRequests(reqPage);
-      loadMyResponses(1);
+      await Promise.allSettled([
+        loadRequests(reqPage),
+        loadMyResponses(1),
+      ]);
       setMyPage(1);
     } catch (err) {
       setOfferErr(firstError(err));
@@ -150,7 +177,7 @@ export default function MaterialRequestsPage() {
       await api.patch(`/waste-bank/responses/${deliverTarget.id}/delivered`, {});
       toast('Tawaran ditandai sebagai terkirim.', 'success');
       setDeliverTarget(null);
-      loadMyResponses(myPage);
+      await loadMyResponses(myPage);
     } catch (err) {
       toast(firstError(err), 'error');
     } finally {
@@ -363,7 +390,7 @@ function RequestCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="text-sm font-semibold text-ink">
-              {request.waste_category?.name ?? 'Kategori tidak tersedia'}
+              {request.permintaan_bahan ?? request.title ?? 'Permintaan bahan daur ulang'}
             </span>
             <StatusBadge status={request.status} />
           </div>
@@ -420,7 +447,7 @@ function MyResponseCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="text-sm font-semibold text-ink">
-              {req?.waste_category?.name ?? `Permintaan #${response.material_request_id}`}
+              {req?.permintaan_bahan ?? req?.title ?? `Permintaan #${response.material_request_id}`}
             </span>
             <StatusBadge status={response.status} />
           </div>

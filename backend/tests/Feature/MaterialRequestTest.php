@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\DiyGuide;
+use App\Models\DiySubmission;
 use App\Models\MaterialRequest;
 use App\Models\MaterialRequestResponse;
 use App\Models\User;
@@ -46,6 +48,77 @@ class MaterialRequestTest extends TestCase
     }
 
     // ── Index ─────────────────────────────────────────────────────────────
+
+    public function test_community_dashboard_returns_stats_and_recent_submissions(): void
+    {
+        $community = User::factory()->community()->create();
+        $guide = DiyGuide::factory()->create(['created_by' => $community->id]);
+
+        $submitterA = User::factory()->create();
+        $submitterB = User::factory()->create();
+
+        DiySubmission::create([
+            'user_id' => $submitterA->id,
+            'diy_guide_id' => $guide->id,
+            'proof_image' => 'pending.jpg',
+            'status' => 'pending',
+        ]);
+
+        DiySubmission::create([
+            'user_id' => $submitterB->id,
+            'diy_guide_id' => $guide->id,
+            'proof_image' => 'approved.jpg',
+            'status' => 'approved',
+            'reviewed_by' => $community->id,
+            'reviewed_at' => now(),
+            'points_awarded' => 25,
+        ]);
+
+        DiySubmission::create([
+            'user_id' => $submitterA->id,
+            'diy_guide_id' => $guide->id,
+            'proof_image' => 'rejected.jpg',
+            'status' => 'rejected',
+            'review_note' => 'Tidak sesuai panduan.',
+            'reviewed_by' => $community->id,
+            'reviewed_at' => now(),
+        ]);
+
+        MaterialRequest::create([
+            'community_id' => $community->id,
+            'permintaan_bahan' => 'Botol Plastik',
+            'waste_category_id' => $this->category->id,
+            'quantity_needed_kg' => 12.5,
+            'notes' => 'Diperlukan untuk workshop.',
+            'status' => 'open',
+        ]);
+
+        $this->actingAs($community)
+            ->getJson('/api/community/dashboard?limit=10')
+            ->assertOk()
+            ->assertJsonPath('data.user.name', $community->name)
+            ->assertJsonPath('data.stats.pending', 1)
+            ->assertJsonPath('data.stats.approved', 1)
+            ->assertJsonPath('data.stats.rejected', 1)
+            ->assertJsonPath('data.stats.open_material_requests', 1)
+            ->assertJsonCount(3, 'data.submissions');
+    }
+
+    public function test_officer_sees_real_permintaan_bahan_value_from_database(): void
+    {
+        MaterialRequest::create([
+            'community_id' => $this->community->id,
+            'permintaan_bahan' => 'Botol Plastik 5kg',
+            'waste_category_id' => $this->category->id,
+            'quantity_needed_kg' => 5.0,
+            'status' => 'open',
+        ]);
+
+        $this->actingAs($this->officer)
+            ->getJson('/api/waste-bank/material-requests')
+            ->assertOk()
+            ->assertJsonPath('data.0.permintaan_bahan', 'Botol Plastik 5kg');
+    }
 
     public function test_officer_sees_open_requests_for_accepted_categories(): void
     {
@@ -221,5 +294,39 @@ class MaterialRequestTest extends TestCase
             ->getJson('/api/waste-bank/responses')
             ->assertOk()
             ->assertJsonCount(1, 'data');
+    }
+
+    public function test_community_can_list_own_material_requests(): void
+    {
+        MaterialRequest::create([
+            'community_id' => $this->community->id,
+            'waste_category_id' => $this->category->id,
+            'quantity_needed_kg' => 12.5,
+            'notes' => 'Butuh untuk workshop',
+            'status' => 'open',
+        ]);
+
+        $this->actingAs($this->community)
+            ->getJson('/api/community/material-requests')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_community_can_create_material_request(): void
+    {
+        $this->actingAs($this->community)
+            ->postJson('/api/community/material-requests', [
+                'title' => 'Dibutuhkan 12 Botol Plastik Bekas',
+                'category' => $this->category->name,
+                'quantity' => '12 Botol',
+                'description' => 'Untuk kegiatan workshop eco-brick.',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'open');
+
+        $this->assertDatabaseHas('material_requests', [
+            'community_id' => $this->community->id,
+            'status' => 'open',
+        ]);
     }
 }

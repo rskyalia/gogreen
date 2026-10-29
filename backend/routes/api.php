@@ -121,7 +121,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Community ─────────────────────────────────────────────────────────
     Route::middleware('role:community')->prefix('community')->group(function () {
-        // Fase berikutnya: diy-guides, material-requests (dari sisi community)
+        Route::get('dashboard', DashboardController::class);
+        Route::get('material-requests', [App\Http\Controllers\Community\MaterialRequestController::class, 'index']);
+        Route::post('material-requests', [App\Http\Controllers\Community\MaterialRequestController::class, 'store']);
+        Route::patch('material-requests/{id}', [App\Http\Controllers\Community\MaterialRequestController::class, 'update']);
+        Route::delete('material-requests/{id}', [App\Http\Controllers\Community\MaterialRequestController::class, 'destroy']);
     });
 
     // ── Developer ─────────────────────────────────────────────────────────

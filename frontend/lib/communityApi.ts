@@ -1,14 +1,6 @@
-// Helper API untuk dashboard komunitas.
-// Sesuaikan 2 hal ini dengan project-mu:
-//   1) NEXT_PUBLIC_API_URL di .env.local (default: http://localhost:8000/api)
-//   2) getToken(): tempat token login Sanctum disimpan (default: localStorage "token")
+import { getToken } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
-
-function getToken(): string | null {
-    if (typeof window === "undefined") return null;
-    return window.localStorage.getItem("token");
-}
 
 export type SubmissionStatus = "pending" | "approved" | "rejected";
 

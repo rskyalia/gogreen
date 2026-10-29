@@ -6,6 +6,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
+
+function firstError(err: unknown, fallback = "Terjadi kesalahan."): string {
+  const error = err as { message?: string; errors?: Record<string, string[]> };
+
+  if (error?.errors) {
+    const first = Object.values(error.errors)[0];
+    if (Array.isArray(first) && first.length > 0) return first[0];
+  }
+
+  return error?.message ?? fallback;
+}
 import {
   LayoutDashboard,
   BookOpen,
@@ -67,34 +79,61 @@ function CommunityLayoutContent({
   // State Notifikasi
   const [showNotifications, setShowNotifications] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [isNotificationsLoading, setIsNotificationsLoading] = useState(true);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
 
-  // Dummy Data Notifikasi Pengajuan Karya dari Warga
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: "1",
-      authorName: "Budi Santoso",
-      title: "Mengajukan karya: Pot Bunga dari Botol Plastik Bekas",
-      time: "10 menit yang lalu",
-      isRead: false,
-      status: "pending",
-    },
-    {
-      id: "2",
-      authorName: "Siti Rahma",
-      title: "Mengajukan karya: Lampu Hias dari Bambu Daur Ulang",
-      time: "1 jam yang lalu",
-      isRead: false,
-      status: "pending",
-    },
-    {
-      id: "3",
-      authorName: "Ahmad Fauzi",
-      title: "Mengajukan karya: Kompostor Sederhana Skala Rumah Tangga",
-      time: "3 jam yang lalu",
-      isRead: true,
-      status: "approved",
-    },
-  ]);
+  const formatRelativeTime = (isoDate: string | null) => {
+    if (!isoDate) return "baru saja";
+
+    const diffMs = Date.now() - new Date(isoDate).getTime();
+    const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
+
+    if (diffMinutes < 60) return `${diffMinutes} menit yang lalu`;
+
+    const diffHours = Math.round(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} jam yang lalu`;
+
+    const diffDays = Math.round(diffHours / 24);
+    return `${diffDays} hari yang lalu`;
+  };
+
+  const mapSubmissionToNotification = (submission: any): NotificationItem => ({
+    id: String(submission.id),
+    authorName: submission.user?.name ?? "Pengguna",
+    title: `Mengajukan karya: ${submission.diy_guide?.title ?? submission.diyGuide?.title ?? "Karya DIY"}`,
+    time: formatRelativeTime(submission.created_at),
+    isRead: submission.status !== "pending",
+    status: submission.status,
+  });
+
+  const fetchNotifications = async (silent = false) => {
+    if (!silent) setIsNotificationsLoading(true);
+    setNotificationsError(null);
+
+    try {
+      const res = await api.get<{ data: any[] }>('/admin/diy-submissions?per_page=100');
+      const items = Array.isArray(res.data) ? res.data : [];
+      setNotifications(items.map(mapSubmissionToNotification));
+    } catch (error) {
+      setNotificationsError(firstError(error, "Gagal memuat notifikasi karya."));
+      setNotifications([]);
+    } finally {
+      setIsNotificationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchNotifications(true);
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Hitung berapa notifikasi yang belum dibaca
   const unreadCount = notifications.filter((item) => !item.isRead).length;
@@ -123,12 +162,21 @@ function CommunityLayoutContent({
   };
 
   // Handler aksi validasi karya langsung dari notifikasi
-  const handleAction = (id: string, action: "approved" | "rejected") => {
-    setNotifications((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: action, isRead: true } : item
-      )
-    );
+  const handleAction = async (id: string, action: "approved" | "rejected") => {
+    try {
+      await api.patch(`/admin/diy-submissions/${id}/review`, {
+        status: action,
+        review_note:
+          action === "rejected"
+            ? "Karya tidak memenuhi kriteria validasi komunitas."
+            : undefined,
+      });
+
+      await fetchNotifications(true);
+    } catch (error) {
+      console.error("Error saat validasi notifikasi:", error);
+      setNotificationsError(firstError(error, "Gagal memproses validasi karya."));
+    }
   };
 
   // 🔴 PERBAIKAN LOGOUT MENGGUNAKAN AUTHCONTEXT
@@ -152,6 +200,97 @@ function CommunityLayoutContent({
     { name: "Validasi Karya", href: "/community/submissions", icon: CheckSquare },
     { name: "Request Bahan", href: "/community/material-requests", icon: PackagePlus },
   ];
+
+  const renderNotificationContent = () => {
+    if (isNotificationsLoading) {
+      return (
+        <div className="p-6 text-center text-xs text-[#6b8279]">
+          Memuat notifikasi...
+        </div>
+      );
+    }
+
+    if (notificationsError) {
+      return (
+        <div className="p-4 text-center text-xs text-red-600">
+          {notificationsError}
+        </div>
+      );
+    }
+
+    if (notifications.length === 0) {
+      return (
+        <div className="p-6 text-center text-xs text-[#6b8279]">
+          Belum ada pengajuan karya dari warga.
+        </div>
+      );
+    }
+
+    return notifications.map((item) => (
+      <div
+        key={item.id}
+        className={`p-3 sm:p-3.5 transition-all ${
+          !item.isRead ? "bg-[#e1f3e9]/40" : "bg-white"
+        }`}
+      >
+        <div className="flex items-start gap-2.5 sm:gap-3">
+          <div className="w-8 h-8 rounded-full bg-[#cfeedd] text-[#0b4d36] font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+            <FileText className="w-4 h-4 text-[#0b4d36]" />
+          </div>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[11px] sm:text-xs font-bold text-[#1d3b2f] break-words">
+                {item.authorName}
+              </p>
+              <span className="text-[9px] sm:text-[10px] text-[#6b8279] whitespace-nowrap">
+                {item.time}
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs text-[#426355] leading-snug break-words">
+              {item.title}
+            </p>
+
+            <div className="pt-1.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              {item.status === "pending" ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => handleAction(item.id, "approved")}
+                    className="px-2.5 py-1 bg-[#0b4d36] hover:bg-[#1f8a5b] text-white text-[10px] font-semibold rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3 h-3" /> Terima
+                  </button>
+                  <button
+                    onClick={() => handleAction(item.id, "rejected")}
+                    className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-semibold rounded-lg flex items-center gap-1 transition-all cursor-pointer border border-red-200"
+                  >
+                    <XCircle className="w-3 h-3" /> Tolak
+                  </button>
+                </div>
+              ) : (
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    item.status === "approved"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-red-100 text-red-800"
+                  }`}
+                >
+                  {item.status === "approved" ? "Disetujui" : "Ditolak"}
+                </span>
+              )}
+
+              <Link
+                href="/community/submissions"
+                onClick={() => setShowNotifications(false)}
+                className="text-[10px] sm:text-[10px] text-[#1f8a5b] font-bold hover:underline whitespace-nowrap self-start"
+              >
+                Tinjau Detail →
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    ));
+  };
 
   return (
     <div className="min-h-screen bg-[#f5faf7] flex flex-col font-sans text-[#1d3b2f]">
@@ -187,11 +326,11 @@ function CommunityLayoutContent({
         {/* Profile, Notifikasi & Tombol Keluar */}
         <div className="flex items-center gap-4">
           {/* Container Tombol & Pop-up Notifikasi */}
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative z-40" ref={dropdownRef}>
             <button
               onClick={() => setShowNotifications((prev) => !prev)}
               title="Notifikasi Pengajuan Karya"
-              className="p-2 text-[#6b8279] hover:bg-[#e1f3e9] hover:text-[#0b4d36] rounded-full transition-all relative cursor-pointer"
+              className="relative flex-shrink-0 p-2 text-[#6b8279] hover:bg-[#e1f3e9] hover:text-[#0b4d36] rounded-full transition-all cursor-pointer"
             >
               <Bell className="w-5 h-5" />
               {/* Badge Jumlah Notifikasi Belum Dibaca */}
@@ -204,14 +343,14 @@ function CommunityLayoutContent({
 
             {/* Menu Pop-up Dropdown Notifikasi */}
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm sm:w-96 bg-white rounded-2xl border border-[#d7e6dd] shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="p-4 border-b border-[#d7e6dd] flex items-center justify-between bg-[#f5faf7]">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-bold text-[#1d3b2f] uppercase tracking-wider">
+              <div className="fixed inset-x-3 top-16 z-[60] w-auto max-w-sm bg-white rounded-2xl border border-[#d7e6dd] shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 sm:absolute sm:inset-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[calc(100vw-2rem)] sm:max-w-sm">
+                <div className="p-3 sm:p-4 border-b border-[#d7e6dd] flex items-center justify-between gap-2 bg-[#f5faf7]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h4 className="text-[11px] sm:text-xs font-bold text-[#1d3b2f] uppercase tracking-wider truncate">
                       Pengajuan Karya Warga
                     </h4>
                     {unreadCount > 0 && (
-                      <span className="bg-[#1f8a5b] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      <span className="bg-[#1f8a5b] text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
                         {unreadCount} Baru
                       </span>
                     )}
@@ -219,94 +358,22 @@ function CommunityLayoutContent({
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className="text-[11px] text-[#1f8a5b] hover:underline font-semibold cursor-pointer"
+                      className="text-[10px] sm:text-[11px] text-[#1f8a5b] hover:underline font-semibold cursor-pointer whitespace-nowrap"
                     >
                       Tandai dibaca
                     </button>
                   )}
                 </div>
 
-                <div className="max-h-80 overflow-y-auto divide-y divide-[#edf4f0]">
-                  {notifications.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-[#6b8279]">
-                      Belum ada pengajuan karya dari warga.
-                    </div>
-                  ) : (
-                    notifications.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`p-3.5 transition-all ${
-                          !item.isRead ? "bg-[#e1f3e9]/40" : "bg-white"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#cfeedd] text-[#0b4d36] font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                            <FileText className="w-4 h-4 text-[#0b4d36]" />
-                          </div>
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-bold text-[#1d3b2f]">
-                                {item.authorName}
-                              </p>
-                              <span className="text-[10px] text-[#6b8279]">
-                                {item.time}
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#426355] leading-snug">
-                              {item.title}
-                            </p>
-
-                            {/* Tombol Aksi Langsung atau Indicator Status */}
-                            <div className="pt-1.5 flex items-center justify-between">
-                              {item.status === "pending" ? (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => handleAction(item.id, "approved")}
-                                    className="px-2.5 py-1 bg-[#0b4d36] hover:bg-[#1f8a5b] text-white text-[10px] font-semibold rounded-lg flex items-center gap-1 transition-all cursor-pointer"
-                                  >
-                                    <CheckCircle2 className="w-3 h-3" /> Terima
-                                  </button>
-                                  <button
-                                    onClick={() => handleAction(item.id, "rejected")}
-                                    className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-semibold rounded-lg flex items-center gap-1 transition-all cursor-pointer border border-red-200"
-                                  >
-                                    <XCircle className="w-3 h-3" /> Tolak
-                                  </button>
-                                </div>
-                              ) : (
-                                <span
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                    item.status === "approved"
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : "bg-red-100 text-red-800"
-                                  }`}
-                                >
-                                  {item.status === "approved"
-                                    ? "Disetujui"
-                                    : "Ditolak"}
-                                </span>
-                              )}
-
-                              <Link
-                                href="/community/submissions"
-                                onClick={() => setShowNotifications(false)}
-                                className="text-[10px] text-[#1f8a5b] font-bold hover:underline"
-                              >
-                                Tinjau Detail →
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                <div className="max-h-[60vh] sm:max-h-80 overflow-y-auto divide-y divide-[#edf4f0]">
+                  {renderNotificationContent()}
                 </div>
 
                 <div className="p-2.5 border-t border-[#d7e6dd] bg-[#f5faf7] text-center">
                   <Link
                     href="/community/submissions"
                     onClick={() => setShowNotifications(false)}
-                    className="text-xs font-bold text-[#0b4d36] hover:underline block py-1"
+                    className="text-[11px] sm:text-xs font-bold text-[#0b4d36] hover:underline block py-1"
                   >
                     Lihat Semua Validasi Karya
                   </Link>
