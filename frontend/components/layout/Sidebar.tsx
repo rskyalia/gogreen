@@ -13,13 +13,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Leaf, LogOut } from 'lucide-react';
-import { WASTE_BANK_NAV, DEVELOPER_NAV } from '@/lib/navigation';
+import { WASTE_BANK_NAV, DEVELOPER_NAV, USER_NAV } from '@/lib/navigation';
 import { useAuth } from '@/context/AuthContext';
 import type { NavItem } from '@/lib/navigation';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
-export type SidebarVariant = 'waste_bank' | 'developer';
+export type SidebarVariant = 'waste_bank' | 'developer' | 'user';
 
 interface SidebarProps {
   variant: SidebarVariant;
@@ -30,12 +30,14 @@ interface SidebarProps {
 
 const NAV_MAP: Record<SidebarVariant, NavItem[]> = {
   waste_bank: WASTE_BANK_NAV,
-  developer: DEVELOPER_NAV,
+  developer:  DEVELOPER_NAV,
+  user:       USER_NAV,
 };
 
 const SECTION_MAP: Record<SidebarVariant, string> = {
   waste_bank: 'Bank Sampah',
-  developer: 'Developer',
+  developer:  'Developer',
+  user:       'Masyarakat',
 };
 
 // ── Logo ──────────────────────────────────────────────────────────────────

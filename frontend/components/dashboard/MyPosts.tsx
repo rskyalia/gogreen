@@ -59,7 +59,7 @@ export default function MyPosts({
                         const st = STATUS[s.status];
                         return (
                             <li key={s.id} className="overflow-hidden rounded-2xl border border-line bg-white">
-                                <div className={`relative aspect-[4/3] overflow-hidden ${s.tone}`}>
+                                <div className="relative aspect-[4/3] overflow-hidden bg-mist">
                                     {s.image ? (
                                         <Image
                                             src={s.image}
@@ -70,15 +70,9 @@ export default function MyPosts({
                                             className="object-cover"
                                         />
                                     ) : (
-                                        <>
-                                            <span className="absolute -right-8 -top-8 size-32 rounded-full bg-white/25" />
-                                            <span className="absolute -bottom-10 -left-6 size-28 rounded-full bg-white/20" />
-                                            <s.Icon
-                                                className="absolute left-1/2 top-1/2 size-14 -translate-x-1/2 -translate-y-1/2 opacity-70"
-                                                strokeWidth={1.25}
-                                                aria-hidden
-                                            />
-                                        </>
+                                        <div className="absolute inset-0 grid place-items-center bg-mist">
+                                            <ImagePlus className="size-10 text-line" aria-hidden />
+                                        </div>
                                     )}
                                     <span className={`absolute left-3 top-3 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${st.cls}`}>
                                         <st.Icon className="size-3.5" aria-hidden />

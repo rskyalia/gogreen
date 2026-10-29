@@ -20,6 +20,7 @@ import {
   CreditCard,
   Coins,
   MapPin,
+  ScanLine,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -39,11 +40,13 @@ export interface NavGroup {
 // ── Menu user (warga) ─────────────────────────────────────────────────────
 
 export const USER_NAV: NavItem[] = [
-  { label: 'Dashboard',      href: '/dashboard',    icon: LayoutDashboard },
-  { label: 'Kartu QR',       href: '/member-card',  icon: CreditCard      },
-  { label: 'Bank Sampah',    href: '/waste-banks',  icon: MapPin          },
-  { label: 'Riwayat Setor',  href: '/deposits',     icon: ArrowDownToLine },
-  { label: 'Riwayat Poin',   href: '/points',       icon: Coins           },
+  { label: 'Dashboard',      href: '/dashboard',      icon: LayoutDashboard },
+  { label: 'Scan Sampah',    href: '/scan',            icon: ScanLine        },
+  { label: 'Kartu QR',       href: '/member-card',     icon: CreditCard      },
+  { label: 'Bank Sampah',    href: '/waste-banks',     icon: MapPin          },
+  { label: 'Komunitas DIY',  href: '/komunitas-diy',   icon: BookOpen        },
+  { label: 'Riwayat Setor',  href: '/deposits',        icon: ArrowDownToLine },
+  { label: 'Riwayat Poin',   href: '/points',          icon: Coins           },
 ];
 
 // ── Menu bank sampah ──────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DiyGuideController;
-use App\Http\Controllers\Admin\DiySubmissionController;
+use App\Http\Controllers\Admin\DiySubmissionController as AdminDiySubmissionController;
 use App\Http\Controllers\Admin\MlStatusController;
 use App\Http\Controllers\Admin\RedemptionController;
 use App\Http\Controllers\Admin\RewardController;
@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WasteBankController as AdminWasteBankController;
 use App\Http\Controllers\Api\AiCraftRecommendationController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\User\DiySubmissionController;
 use App\Http\Controllers\User\MemberCardController;
 use App\Http\Controllers\User\NotificationController;
 use App\Http\Controllers\User\PointLedgerController;
@@ -101,6 +102,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('points', PointLedgerController::class);
 
+        // Upload karya / DIY submissions
+        Route::get('diy-submissions', [DiySubmissionController::class, 'index']);
+        Route::post('diy-submissions', [DiySubmissionController::class, 'store']);
+
         // Notifikasi — read-all sebelum {id} agar tidak terambil sebagai param
         Route::get('notifications', [NotificationController::class, 'index']);
         Route::patch('notifications/read-all', [NotificationController::class, 'markAllRead']);
@@ -167,7 +172,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Developer saja — validasi karya
     Route::middleware('role:developer')->prefix('admin')->group(function () {
-        Route::get('diy-submissions', [DiySubmissionController::class, 'index']);
-        Route::patch('diy-submissions/{id}/review', [DiySubmissionController::class, 'review']);
+        Route::get('diy-submissions', [AdminDiySubmissionController::class, 'index']);
+        Route::patch('diy-submissions/{id}/review', [AdminDiySubmissionController::class, 'review']);
     });
 });
