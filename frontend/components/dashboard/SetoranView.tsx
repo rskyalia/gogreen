@@ -5,13 +5,19 @@ import Image from "next/image";
 import { Camera, CircleCheck, ImagePlus, Loader2 } from "lucide-react";
 import { fetchTutorials, type Tutorial } from "@/lib/diy";
 import { categories } from "@/lib/tutorials";
+import { firstError } from "@/lib/api";
 import { COMMUNITIES, createSubmission } from "@/lib/submissons";
+import { TEMP_GUIDES, type GuideOption } from "@/lib/tempGuides";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 
 const MAX_MB = 5;
 const MAX_NOTES = 300;
+
+// Fitur yang BELUM punya tempat di database. Ubah ke true setelah backend menyimpannya
+// (karya mandiri: judul/kategori/catatan dan diy_guide_id nullable; komunitas: community_id).
+const SUPPORT = { custom: false, community: false } as const;
 
 type Mode = "guide" | "custom";
 
@@ -75,9 +81,13 @@ export default function SetoranView({
         };
     }, [preview]);
 
-    const guide = guides.find((g) => g.id === guideId);
+    // id tutorial harus angka dari tabel diy_guides. Kalau yang datang masih data contoh
+    // (id teks), pakai daftar sementara sampai endpoint /user/diy-guides tersedia.
+    const realIds = guides.length > 0 && guides.every((g) => /^\d+$/.test(g.id));
+    const options: GuideOption[] = realIds ? guides : TEMP_GUIDES;
+    const guide = options.find((g) => g.id === guideId);
     const hasWork = mode === "guide" ? Boolean(guide) : customTitle.trim().length >= 3 && customCategory !== "";
-    const ready = hasWork && Boolean(photo) && Boolean(communityId);
+    const ready = hasWork && Boolean(photo) && (!SUPPORT.community || Boolean(communityId));
 
     const onPick = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -96,25 +106,34 @@ export default function SetoranView({
         e.preventDefault();
         if (!ready || !photo) return;
 
+        const formData = new FormData();
+        formData.append("proof_image", photo);
+        if (notes.trim()) formData.append("notes", notes.trim());
+
+        if (mode === "guide") {
+            // id harus angka dari tabel diy_guides; id teks berarti masih data contoh
+            const id = Number(guideId);
+            if (!Number.isInteger(id) || id <= 0) {
+                setError(
+                    "Tutorial ini masih data contoh. Set NEXT_PUBLIC_DIY_SOURCE=api setelah endpoint daftar tutorial untuk user tersedia.",
+                );
+                return;
+            }
+            formData.append("diy_guide_id", String(id));
+        } else {
+            formData.append("title", customTitle.trim());
+            formData.append("category", customCategory);
+        }
+        if (SUPPORT.community && communityId) formData.append("community_id", communityId);
+
         setLoading(true);
         setError("");
-
         try {
-            const formData = new FormData();
-            formData.append("proof_image", photo);
-            if (notes.trim()) {
-                formData.append("notes", notes.trim());
-            }
-
-            if (mode === "guide" && guideId) {
-                formData.append("diy_guide_id", guideId);
-            }
-
             await createSubmission(formData);
             setSent(true);
-            if (onSuccess) onSuccess();
-        } catch (err: any) {
-            setError(err?.message || "Gagal mengunggah karya. Pastikan koneksi internet stabil.");
+            onSuccess?.();
+        } catch (err) {
+            setError(firstError(err, "Gagal mengunggah karya. Silakan coba lagi."));
         } finally {
             setLoading(false);
         }
@@ -166,7 +185,10 @@ export default function SetoranView({
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-leaf">Build It</p>
                 <h1 className="mt-2 font-serif text-3xl font-medium text-forest sm:text-4xl">Upload karya</h1>
                 <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
-                    Pilih tutorial yang kamu ikuti atau tulis karyamu sendiri, lalu kirim foto hasilnya. Karya divalidasi dulu sebelum poin masuk.
+                    {SUPPORT.custom
+                        ? "Pilih tutorial yang kamu ikuti atau tulis karyamu sendiri, lalu kirim foto hasilnya. "
+                        : "Pilih tutorial yang kamu kerjakan, lalu kirim foto hasilnya. "}
+                    Karya divalidasi dulu sebelum poin masuk.
                 </p>
             </header>
 
@@ -198,23 +220,25 @@ export default function SetoranView({
                 </section>
 
                 <section className="space-y-5">
-                    <fieldset>
-                        <legend className="text-sm font-semibold text-ink">Jenis karya</legend>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            <ModeChoice value="guide" checked={mode === "guide"} onChange={() => setMode("guide")}>
-                                <span className="block text-sm font-semibold text-ink">Dari tutorial</span>
-                                <span className="mt-0.5 block text-xs leading-snug text-muted">
-                                    Pilih tutorial yang sudah kamu kerjakan
-                                </span>
-                            </ModeChoice>
-                            <ModeChoice value="custom" checked={mode === "custom"} onChange={() => setMode("custom")}>
-                                <span className="block text-sm font-semibold text-ink">Tulis karyamu sendiri</span>
-                                <span className="mt-0.5 block text-xs leading-snug text-muted">
-                                    Karya hasil idemu sendiri
-                                </span>
-                            </ModeChoice>
-                        </div>
-                    </fieldset>
+                    {SUPPORT.custom && (
+                        <fieldset>
+                            <legend className="text-sm font-semibold text-ink">Jenis karya</legend>
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                <ModeChoice value="guide" checked={mode === "guide"} onChange={() => setMode("guide")}>
+                                    <span className="block text-sm font-semibold text-ink">Dari tutorial</span>
+                                    <span className="mt-0.5 block text-xs leading-snug text-muted">
+                                        Pilih tutorial yang sudah kamu kerjakan
+                                    </span>
+                                </ModeChoice>
+                                <ModeChoice value="custom" checked={mode === "custom"} onChange={() => setMode("custom")}>
+                                    <span className="block text-sm font-semibold text-ink">Tulis karyamu sendiri</span>
+                                    <span className="mt-0.5 block text-xs leading-snug text-muted">
+                                        Karya hasil idemu sendiri
+                                    </span>
+                                </ModeChoice>
+                            </div>
+                        </fieldset>
+                    )}
 
                     {mode === "guide" ? (
                         <Select
@@ -227,11 +251,13 @@ export default function SetoranView({
                             hint={
                                 guide
                                     ? `${guide.category}${guide.rewardPoints > 0 ? ` · +${guide.rewardPoints} poin kalau disetujui` : ""}`
-                                    : undefined
+                                    : realIds
+                                      ? undefined
+                                      : "Daftar sementara, belum dari database."
                             }
                         >
                             <option value="">{guidesState === "loading" ? "Memuat karya..." : "Pilih karya"}</option>
-                            {guides.map((g) => (
+                            {options.map((g) => (
                                 <option key={g.id} value={g.id}>
                                     {g.title}
                                 </option>
@@ -266,20 +292,22 @@ export default function SetoranView({
                         </div>
                     )}
 
-                    <Select
-                        id="community"
-                        label="Komunitas yang dituju"
-                        required
-                        value={communityId}
-                        onChange={(e) => setCommunityId(e.target.value)}
-                    >
-                        <option value="">Pilih komunitas</option>
-                        {COMMUNITIES.map((c) => (
-                            <option key={c.id} value={c.id}>
-                                {c.name}
-                            </option>
-                        ))}
-                    </Select>
+                    {SUPPORT.community && (
+                        <Select
+                            id="community"
+                            label="Komunitas yang dituju"
+                            required
+                            value={communityId}
+                            onChange={(e) => setCommunityId(e.target.value)}
+                        >
+                            <option value="">Pilih komunitas</option>
+                            {COMMUNITIES.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                    {c.name}
+                                </option>
+                            ))}
+                        </Select>
+                    )}
 
                     <Textarea
                         id="notes"
