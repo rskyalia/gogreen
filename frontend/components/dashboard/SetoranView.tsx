@@ -15,9 +15,9 @@ import { Textarea } from "@/components/ui/Textarea";
 const MAX_MB = 5;
 const MAX_NOTES = 300;
 
-// Fitur yang BELUM punya tempat di database. Ubah ke true setelah backend menyimpannya
-// (karya mandiri: judul/kategori/catatan dan diy_guide_id nullable; komunitas: community_id).
-const SUPPORT = { custom: false, community: false } as const;
+// Karya mandiri (tanpa tutorial) kini tersimpan di database:
+// backend menerima diy_guide_id nullable + title + category + notes.
+const SUPPORT = { custom: true, community: false } as const;
 
 type Mode = "guide" | "custom";
 

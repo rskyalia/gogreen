@@ -2,12 +2,15 @@ import { api, uploadForm } from "@/lib/api";
 
 export type SubmissionStatus = "pending" | "approved" | "rejected";
 
-// Foto dilayani lewat rewrite "/storage/*" di next.config.ts (diteruskan ke backend),
-// jadi cukup path relatif; tidak bergantung pada NEXT_PUBLIC_API_URL.
+// Origin backend (misal http://localhost:8000 di dev, https://... di prod).
+// Sama dengan pola di lib/diy.ts agar URL gambar selalu absolut dan tidak
+// tersangkut rewrite "/storage/*" → produksi di next.config.ts.
+const STORAGE_ORIGIN = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api").replace(/\/api\/?$/, "");
+
 function imageUrl(path: string | null | undefined): string | null {
   if (!path) return null;
   if (/^https?:\/\//.test(path)) return path;
-  return `/storage/${path.replace(/^\/?(storage\/)?/, "")}`;
+  return `${STORAGE_ORIGIN}/storage/${path.replace(/^\/?(storage\/)?/, "")}`;
 }
 
 // bentuk data dari GET/POST /api/user/diy-submissions (User\DiySubmissionController)

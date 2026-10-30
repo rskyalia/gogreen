@@ -17,6 +17,9 @@ class DiySubmission extends Model
         'user_id',
         'diy_guide_id',
         'waste_scan_id',
+        'title',
+        'category',
+        'notes',
         'proof_image',
         'status',
         'review_note',
@@ -49,7 +52,8 @@ class DiySubmission extends Model
         DB::transaction(function () use ($reviewer) {
             $guide = $this->diyGuide;
             $user = $this->user;
-            $points = $guide->reward_points;
+            // Karya mandiri tidak terikat tutorial — tidak ada poin reward.
+            $points = $guide?->reward_points ?? 0;
 
             // Update submission
             $this->update([
@@ -72,7 +76,7 @@ class DiySubmission extends Model
                     'balance_after' => $newBalance,
                     'reference_type' => self::class,
                     'reference_id' => $this->id,
-                    'description' => "DIY selesai: {$guide->title}",
+                    'description' => 'DIY selesai: '.($guide?->title ?? $this->title ?? 'Karya mandiri'),
                 ]);
             }
         });

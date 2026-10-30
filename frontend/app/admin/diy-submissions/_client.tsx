@@ -19,6 +19,8 @@ interface Submission {
   proof_image:   string;
   review_note:   string | null;
   points_awarded: number;
+  title:         string | null;
+  category:      string | null;
   created_at:    string;
   user:          { id: number; name: string; email: string } | null;
   diy_guide: {
@@ -29,6 +31,11 @@ interface Submission {
   } | null;
   reviewer: { id: number; name: string } | null;
 }
+
+// Judul tampil untuk karya: punya tutorial pakai judul tutorial,
+// karya mandiri pakai judulnya sendiri.
+const karyaTitle = (row: Submission) =>
+  row.diy_guide?.title ?? row.title ?? 'Karya mandiri';
 
 const TABS = [
   { value: 'pending',  label: 'Pending' },
@@ -156,9 +163,11 @@ export default function AdminDiySubmissionsClient() {
       header: 'Panduan',
       render: (row) => (
         <div>
-          <p className="text-sm text-ink line-clamp-1">{row.diy_guide?.title ?? '-'}</p>
+          <p className="text-sm text-ink line-clamp-1">{karyaTitle(row)}</p>
           <p className="text-xs text-muted">
-            {row.diy_guide?.waste_category?.name ?? ''} • {row.diy_guide?.reward_points ?? 0} poin
+            {row.diy_guide
+              ? `${row.diy_guide.waste_category?.name ?? row.category ?? ''} • ${row.diy_guide.reward_points} poin`
+              : `${row.category ?? 'Karya mandiri'} • 0 poin`}
           </p>
         </div>
       ),
@@ -264,8 +273,8 @@ export default function AdminDiySubmissionsClient() {
         title={modal.action === 'approved' ? 'Setujui Karya' : 'Tolak Karya'}
         description={
           modal.action === 'approved'
-            ? `Setujui karya "${modal.item?.diy_guide?.title}"? Pengguna akan mendapat ${modal.item?.diy_guide?.reward_points ?? 0} poin.`
-            : `Tolak karya "${modal.item?.diy_guide?.title}"?`
+            ? `Setujui karya "${modal.item ? karyaTitle(modal.item) : ''}"? Pengguna akan mendapat ${modal.item?.diy_guide?.reward_points ?? 0} poin.`
+            : `Tolak karya "${modal.item ? karyaTitle(modal.item) : ''}"?`
         }
         confirmLabel={modal.action === 'approved' ? 'Ya, Setujui' : 'Ya, Tolak'}
         confirmVariant={modal.action === 'approved' ? 'primary' : 'danger'}
