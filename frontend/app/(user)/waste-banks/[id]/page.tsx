@@ -1,7 +1,7 @@
-'use client';
-
 import { Suspense } from 'react';
 import WasteBankDetailClient from './_client';
+
+export const dynamic = 'force-dynamic';
 
 export default function WasteBankDetailPage() {
   return (

@@ -2,6 +2,8 @@ import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui';
 import DepositDetailClient from './_client';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DepositDetailPage({
   params,
 }: {

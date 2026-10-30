@@ -1,6 +1,8 @@
 import { Suspense } from 'react';
 import EditDiyGuideClient from './_client';
 
+export const dynamic = 'force-dynamic';
+
 export default async function EditDiyGuidePage({
   params,
 }: {

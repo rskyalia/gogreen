@@ -1,7 +1,8 @@
-'use client';
-
 import { Suspense } from 'react';
 import DepositDetailClient from './_client';
+
+// Route dinamis — tidak di-prerender secara statis
+export const dynamic = 'force-dynamic';
 
 export default function DepositDetailPage() {
   return (
