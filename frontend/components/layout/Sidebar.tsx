@@ -26,18 +26,26 @@ interface SidebarProps {
   section?: string;
 }
 
+const userNavItems = [
+  { label: "Dashboard", href: "/dashboard" },
+  { label: "Upload Karya", href: "/upload-karya" },
+  { label: "Dampak Saya", href: "/dampak-saya" },
+  { label: "Bank Sampah", href: "/waste-banks" },
+  { label: "Poin & Hadiah", href: "/points" },
+];
+
 // ── Nav map ────────────────────────────────────────────────────────────────
 
 const NAV_MAP: Record<SidebarVariant, NavItem[]> = {
   waste_bank: WASTE_BANK_NAV,
-  developer:  DEVELOPER_NAV,
-  user:       USER_NAV,
+  developer: DEVELOPER_NAV,
+  user: USER_NAV,
 };
 
 const SECTION_MAP: Record<SidebarVariant, string> = {
   waste_bank: 'Bank Sampah',
-  developer:  'Developer',
-  user:       'Masyarakat',
+  developer: 'Developer',
+  user: 'Masyarakat',
 };
 
 // ── Logo ──────────────────────────────────────────────────────────────────

@@ -109,6 +109,57 @@ class DepositController extends Controller
         }
     }
 
+    /**
+     * POST /api/waste-bank/members/release
+     *
+     * Lepaskan klaim token agar member dapat membuat QR baru atau dicoba
+     * dari bank sampah yang sama lagi. Dipakai tombol "Pindai ulang".
+     *
+     * Body: { token }
+     */
+    public function releaseMember(Request $request): JsonResponse
+    {
+        $token = $request->input('token');
+
+        if (! is_string($token) || strlen($token) !== 32) {
+            return response()->json([
+                'message' => 'Token QR tidak valid.',
+                'code' => 'token_invalid',
+                'errors' => [],
+            ], 422);
+        }
+
+        $wasteBank = $request->user()->wasteBank()->firstOrFail();
+
+        $result = $this->qrTokenService->release($token, $wasteBank->id);
+
+        if (! $result['success']) {
+            $code = $result['code'] ?? 'token_invalid';
+            $httpStatus = match ($code) {
+                'token_claimed_by_other' => 409,
+                'token_used' => 409,
+                default => 422,
+            };
+            $message = match ($code) {
+                'token_expired' => 'Token QR telah kedaluwarsa.',
+                'token_used' => 'Token QR sudah digunakan.',
+                'token_claimed_by_other' => 'Anda bukan pemilik klaim token ini.',
+                default => 'Token QR tidak valid.',
+            };
+
+            return response()->json([
+                'message' => $message,
+                'code' => $code,
+                'errors' => [],
+            ], $httpStatus);
+        }
+
+        return response()->json([
+            'message' => 'Token berhasil dilepaskan. Member dapat membuat QR baru.',
+            'code' => 'ok',
+        ]);
+    }
+
     private function lookupError(string $message, string $code, int $status): JsonResponse
     {
         return response()->json([

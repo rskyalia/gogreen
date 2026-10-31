@@ -20,13 +20,15 @@ interface QrScannerProps {
 export default function QrScanner({ onResult, onClose }: QrScannerProps) {
   const scanRegionId = useId().replace(/:/g, '');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const scannerRef   = useRef<any>(null);
+  const scannerRef  = useRef<any>(null);
+  // Hanya true setelah scanner.start() resolve — mencegah stop() di scanner yang belum jalan
+  const startedRef  = useRef(false);
 
   useEffect(() => {
-    let stopped = false;
+    let unmounted = false;
 
     import('html5-qrcode').then(({ Html5Qrcode }) => {
-      if (stopped) return;
+      if (unmounted) return;
 
       const scanner = new Html5Qrcode(scanRegionId);
       scannerRef.current = scanner;
@@ -36,27 +38,37 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 220, height: 220 } },
           (decodedText: string) => {
-            scanner.stop().finally(() => {
-              onResult(decodedText);
-            });
+            // Tandai sudah stop sebelum memanggil stop agar cleanup tidak stop lagi
+            startedRef.current = false;
+            scanner.stop()
+              .catch(() => {/* abaikan */})
+              .finally(() => {
+                if (!unmounted) onResult(decodedText);
+              });
           },
           undefined,
         )
+        .then(() => {
+          // start() berhasil — aman untuk di-stop nanti
+          if (!unmounted) startedRef.current = true;
+        })
         .catch(() => {
           // Kamera tidak bisa diakses — tutup scanner
-          onClose();
+          if (!unmounted) onClose();
         });
     });
 
     return () => {
-      stopped = true;
-      scannerRef.current?.stop().catch(() => {/* ignore cleanup error */});
+      unmounted = true;
+      if (startedRef.current && scannerRef.current) {
+        startedRef.current = false;
+        scannerRef.current.stop().catch(() => {/* abaikan error cleanup */});
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    /* Backdrop */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-4"
       role="dialog"
@@ -68,7 +80,18 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
         <div className="flex items-center justify-between border-b border-line px-5 py-3">
           <p className="font-semibold text-ink text-sm">Scan QR Card Member</p>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={() => {
+              // Tutup manual: stop dulu jika sudah jalan
+              if (startedRef.current && scannerRef.current) {
+                startedRef.current = false;
+                scannerRef.current.stop()
+                  .catch(() => {/* abaikan */})
+                  .finally(onClose);
+              } else {
+                onClose();
+              }
+            }}
             className="text-muted hover:text-ink transition-colors"
             aria-label="Tutup scanner"
           >

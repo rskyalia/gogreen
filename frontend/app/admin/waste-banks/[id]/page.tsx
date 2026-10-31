@@ -1,6 +1,8 @@
 import { Suspense } from 'react';
 import WasteBankDetailClient from './_client';
 
+export const instant = false;
+
 export default async function WasteBankDetailPage({
   params,
 }: {

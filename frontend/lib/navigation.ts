@@ -21,6 +21,10 @@ import {
   Coins,
   MapPin,
   ScanLine,
+  QrCode,
+  Upload,
+  BarChart3,
+  History,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -28,45 +32,48 @@ import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
   label: string;
-  href:  string;
-  icon:  LucideIcon;
+  href: string;
+  icon: LucideIcon;
 }
 
 export interface NavGroup {
   heading?: string;
-  items:    NavItem[];
+  items: NavItem[];
 }
 
 // ── Menu user (warga) ─────────────────────────────────────────────────────
 
 export const USER_NAV: NavItem[] = [
-  { label: 'Dashboard',      href: '/dashboard',      icon: LayoutDashboard },
-  { label: 'Scan Sampah',    href: '/scan',            icon: ScanLine        },
-  { label: 'Kartu QR',       href: '/member-card',     icon: CreditCard      },
-  { label: 'Bank Sampah',    href: '/waste-banks',     icon: MapPin          },
-  { label: 'Komunitas DIY',  href: '/komunitas-diy',   icon: BookOpen        },
-  { label: 'Riwayat Setor',  href: '/deposits',        icon: ArrowDownToLine },
-  { label: 'Riwayat Poin',   href: '/points',          icon: Coins           },
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Scan Sampah', href: '/scan', icon: ScanLine },
+  { label: 'Kartu Member', href: '/member-card', icon: QrCode },
+  { label: 'Bank Sampah', href: '/waste-banks', icon: MapPin },
+  { label: 'Komunitas DIY', href: '/komunitas-diy', icon: BookOpen },
+  { label: 'Upload Karya', href: '/upload-karya', icon: Upload },
+  { label: 'Dampak Saya', href: '/dampak-saya', icon: BarChart3 },
+  { label: 'Riwayat Setor', href: '/deposits', icon: History },
+  { label: 'Riwayat Poin', href: '/points', icon: Coins },
 ];
 
 // ── Menu bank sampah ──────────────────────────────────────────────────────
 export const WASTE_BANK_NAV: NavItem[] = [
-  { label: 'Ringkasan',      href: '/waste-bank/dashboard',         icon: LayoutDashboard },
-  { label: 'Input Setoran',  href: '/waste-bank/deposits/new',      icon: ArrowDownToLine },
-  { label: 'Rekapan',        href: '/waste-bank/deposits',          icon: ClipboardList   },
+  { label: 'Ringkasan', href: '/waste-bank/dashboard', icon: LayoutDashboard },
+  { label: 'Pindai Member', href: '/waste-bank/members/scan', icon: ScanLine },
+  { label: 'Input Setoran', href: '/waste-bank/deposits/new', icon: ArrowDownToLine },
+  { label: 'Rekapan', href: '/waste-bank/deposits', icon: ClipboardList },
   // { label: 'Profil',         href: '/waste-bank/profile',           icon: User            },
-  { label: 'Request Bahan',  href: '/waste-bank/material-requests', icon: Package         },
+  { label: 'Request Bahan', href: '/waste-bank/material-requests', icon: Package },
 ];
 
 // ── Menu developer ────────────────────────────────────────────────────────
 
 export const DEVELOPER_NAV: NavItem[] = [
-  { label: 'Ringkasan',        href: '/admin/dashboard',       icon: LayoutDashboard },
-  { label: 'Verifikasi Mitra', href: '/admin/waste-banks',     icon: CheckCircle     },
-  { label: 'Pengguna',         href: '/admin/users',           icon: Users           },
-  { label: 'Kategori Sampah',  href: '/admin/categories',      icon: Tag             },
-  { label: 'Panduan DIY',      href: '/admin/diy-guides',      icon: BookOpen        },
-  { label: 'Validasi Karya',   href: '/admin/diy-submissions', icon: Image           },
-  { label: 'Katalog Reward',   href: '/admin/rewards',         icon: Gift            },
-  { label: 'Pantau API ML',    href: '/admin/ml-logs',         icon: Activity        },
+  { label: 'Ringkasan', href: '/admin/dashboard', icon: LayoutDashboard },
+  { label: 'Verifikasi Mitra', href: '/admin/waste-banks', icon: CheckCircle },
+  { label: 'Pengguna', href: '/admin/users', icon: Users },
+  { label: 'Kategori Sampah', href: '/admin/categories', icon: Tag },
+  { label: 'Panduan DIY', href: '/admin/diy-guides', icon: BookOpen },
+  { label: 'Validasi Karya', href: '/admin/diy-submissions', icon: Image },
+  { label: 'Katalog Reward', href: '/admin/rewards', icon: Gift },
+  { label: 'Pantau API ML', href: '/admin/ml-logs', icon: Activity },
 ];

@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
         source: "/api/:path*",
         destination: "https://gogreen-production-ywqeec.laravel.cloud/api/:path*",
       },
+      {
+        source: "/storage/:path*",
+        destination: "https://gogreen-production-ywqeec.laravel.cloud/storage/:path*",
+      },
     ];
   },
 };
