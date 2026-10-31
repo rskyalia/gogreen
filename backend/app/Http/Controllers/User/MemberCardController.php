@@ -38,10 +38,13 @@ class MemberCardController extends Controller
     /**
      * Buat token QR baru (sekali pakai, TTL 5 menit).
      * Throttle dikonfigurasi di route (throttle:member-token → 10/menit).
+     *
+     * Jika user punya token berstatus claimed (sedang diproses bank sampah),
+     * lempar token_in_process (409) agar user tahu proses masih berlangsung.
      */
     public function generateToken(Request $request): JsonResponse
     {
-        $data = $this->qrTokenService->generate($request->user()->id);
+        $data = $this->qrTokenService->issue($request->user());
 
         return response()->json(['data' => $data]);
     }
@@ -57,23 +60,14 @@ class MemberCardController extends Controller
      *   used    : { status, deposit: { waste_bank_name, total_weight_kg, total_points, balance_after } }
      *   expired : { status }
      *
-     * Hanya token milik user sendiri yang dapat dicek.
+     * Token milik user lain → 404 (jangan bocorkan keberadaannya).
      */
     public function tokenStatus(MemberTokenStatusRequest $request): JsonResponse
     {
         $token = (string) $request->validated('token');
         $user = $request->user();
-        $statusInfo = $this->qrTokenService->status($token);
+        $statusInfo = $this->qrTokenService->statusFor($token, $user);
         $status = $statusInfo['status'];
-
-        // Token aktif/claimed masih punya payload → verifikasi kepemilikan.
-        if (in_array($status, ['active', 'claimed'], true)) {
-            $payload = $this->qrTokenService->get($token);
-
-            if (! $payload || (int) $payload['user_id'] !== (int) $user->id) {
-                return $this->tokenError();
-            }
-        }
 
         $response = ['status' => $status];
 
@@ -90,47 +84,67 @@ class MemberCardController extends Controller
         }
 
         if ($status === 'used') {
-            $depositId = $this->qrTokenService->getDepositId($token);
+            $summary = $this->qrTokenService->getUsedSummary($token);
 
-            if (! $depositId) {
-                return $this->tokenError();
+            if (! $summary || (int) ($summary['user_id'] ?? 0) !== (int) $user->id) {
+                return $this->tokenNotFoundError();
             }
 
-            // Scope ke user yang login agar token milik orang lain tidak bocor.
-            $deposit = Deposit::with('wasteBank')
-                ->where('user_id', $user->id)
-                ->find($depositId);
+            // Coba baca deposit dari DB jika ada; jatuhkan ke ringkasan cache jika tidak.
+            $depositId = $summary['deposit_id'] ?? null;
+            $depositData = null;
 
-            if (! $deposit) {
-                return $this->tokenError();
+            if ($depositId) {
+                $deposit = Deposit::with('wasteBank')
+                    ->where('user_id', $user->id)
+                    ->find($depositId);
+
+                if ($deposit) {
+                    $pointTransaction = PointTransaction::where('user_id', $user->id)
+                        ->where('reference_type', Deposit::class)
+                        ->where('reference_id', $deposit->id)
+                        ->latest()
+                        ->first();
+
+                    $depositData = [
+                        'id' => $deposit->id,
+                        'waste_bank_name' => $deposit->wasteBank->name,
+                        'total_weight_kg' => (float) $deposit->total_weight_kg,
+                        'total_points' => $deposit->total_points,
+                        'balance_after' => $pointTransaction?->balance_after
+                            ?? $user->fresh()->points_balance,
+                    ];
+                }
             }
 
-            $pointTransaction = PointTransaction::where('user_id', $user->id)
-                ->where('reference_type', Deposit::class)
-                ->where('reference_id', $deposit->id)
-                ->latest()
-                ->first();
+            // Fallback ke ringkasan cache bila deposit belum bisa diakses via DB.
+            if (! $depositData && isset($summary['waste_bank_name'])) {
+                $depositData = [
+                    'id' => $depositId,
+                    'waste_bank_name' => $summary['waste_bank_name'],
+                    'total_weight_kg' => (float) ($summary['total_weight_kg'] ?? 0),
+                    'total_points' => (int) ($summary['total_points'] ?? 0),
+                    'balance_after' => (int) ($summary['balance_after'] ?? 0),
+                ];
+            }
 
-            $response['deposit'] = [
-                'id' => $deposit->id,
-                'waste_bank_name' => $deposit->wasteBank->name,
-                'total_weight_kg' => (float) $deposit->total_weight_kg,
-                'total_points' => $deposit->total_points,
-                'balance_after' => $pointTransaction?->balance_after
-                    ?? $user->fresh()->points_balance,
-            ];
+            if (! $depositData) {
+                return $this->tokenNotFoundError();
+            }
+
+            $response['deposit'] = $depositData;
         }
 
         return response()->json(['data' => $response], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
-    private function tokenError(): JsonResponse
+    private function tokenNotFoundError(): JsonResponse
     {
         return response()->json([
             'message' => 'Token QR tidak ditemukan.',
             'code' => 'token_invalid',
             'errors' => [],
-        ], 422);
+        ], 404);
     }
 
     // ── Legacy static helpers (dipakai test lama) ─────────────────────────

@@ -4,13 +4,16 @@
  * /member-card  — Kartu member digital dengan QR token sekali pakai.
  *
  * Siklus:
- *   active  → QR tampil + hitung mundur + polling status tiap 3 detik
+ *   active  → QR tampil + progress bar + hitung mundur + polling status tiap 3 detik
  *   claimed → "Dipindai oleh {bank}, menunggu petugas…" + terus polling
- *   used    → layar sukses (nama bank, kg, poin, saldo baru)
+ *   used    → layar sukses (nama bank, kg, poin, saldo baru) + tombol ke dashboard
  *   expired → pesan + tombol "Buat QR baru"
  *
- * Auto-refresh token 30 detik sebelum kedaluwarsa.
- * Polling berhenti saat tab tidak aktif; dilanjutkan + token baru saat aktif kembali.
+ * Fitur:
+ *   - Tombol Maximize → modal QR layar penuh dengan petunjuk naikkan kecerahan
+ *   - Auto-refresh token 30 detik sebelum kedaluwarsa
+ *   - Polling berhenti saat tab tidak aktif; dilanjutkan + token baru saat aktif kembali
+ *   - token_in_process (409) → tampilkan claimed tanpa menghancurkan token yang ada
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -19,22 +22,35 @@ import Link from 'next/link';
 import {
     AlertTriangle,
     ArrowRight,
+    Check,
     CheckCircle2,
     Clock,
+    Coins,
     Copy,
-    CreditCard,
+    Maximize,
+    QrCode,
     RefreshCw,
     ScanLine,
+    Sun,
+    X,
 } from 'lucide-react';
-import { api, firstError } from '@/lib/api';
+import { api } from '@/lib/api';
+import { StatCard } from '@/components/ui/StatCard';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui';
+import type { ApiError } from '@/lib/api';
 
 // QRCodeSVG hanya jalan di client
 const QRCodeSVG = dynamic(
     () => import('qrcode.react').then((m) => ({ default: m.QRCodeSVG })),
     { ssr: false, loading: () => <QrPlaceholder /> },
 );
+
+// ── Konstanta ─────────────────────────────────────────────────────────────
+
+const TOKEN_POLL_MS      = 3_000;   // polling status setiap 3 detik
+const TOKEN_TTL_SEC      = 5 * 60;  // TTL aktif 5 menit (untuk progress bar)
+const REFRESH_BEFORE_SEC = 30;      // buat token baru 30 detik sebelum expired
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -56,6 +72,7 @@ type TokenStatus = 'active' | 'claimed' | 'used' | 'expired';
 
 interface StatusResponse {
     status: TokenStatus;
+    expires_at?: string;
     waste_bank_name?: string;
     deposit?: {
         id: number;
@@ -66,46 +83,87 @@ interface StatusResponse {
     };
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────
+// ── Subcomponents ─────────────────────────────────────────────────────────
 
 function QrPlaceholder() {
-    return <div className="size-52 animate-pulse rounded-2xl bg-mist" aria-hidden />;
+    return (
+        <div
+            className="size-60 animate-pulse rounded-2xl bg-mist"
+            aria-hidden
+        />
+    );
 }
 
-function CountdownBadge({ expiresAt, isExpiring }: { expiresAt: string; isExpiring: boolean }) {
-    const [secs, setSecs] = useState(() =>
-        Math.max(0, Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000)),
-    );
+/** Progress bar + hitung mundur. Menampilkan sisa waktu dan proporsi yang tersisa. */
+function CountdownBar({ expiresAt, isExpiring }: { expiresAt: string; isExpiring: boolean }) {
+    const totalMs = TOKEN_TTL_SEC * 1000;
+
+    const calcSecs = () =>
+        Math.max(0, Math.round((new Date(expiresAt).getTime() - Date.now()) / 1000));
+
+    const [secs, setSecs] = useState(calcSecs);
 
     useEffect(() => {
+        setSecs(calcSecs());
         const id = setInterval(() => setSecs((s) => Math.max(0, s - 1)), 1000);
         return () => clearInterval(id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [expiresAt]);
 
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
+    const m       = Math.floor(secs / 60);
+    const s       = secs % 60;
     const expired = secs === 0;
+    // pct = remaining fraction (0–1)
+    const pct = Math.min(1, Math.max(0,
+        (new Date(expiresAt).getTime() - Date.now()) / totalMs,
+    ));
+
+    const barColor = expired
+        ? 'bg-danger'
+        : isExpiring
+          ? 'bg-sun-ink'
+          : 'bg-forest';
+
+    const timeLabel = expired
+        ? 'Token kedaluwarsa'
+        : `Token berlaku ${m}:${String(s).padStart(2, '0')}`;
 
     return (
-        <span
-            role="status"
-            aria-live="polite"
-            aria-label={expired ? 'Token kedaluwarsa' : `Token berlaku ${m}:${String(s).padStart(2, '0')}`}
-            className={[
-                'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold',
-                expired
-                    ? 'bg-danger-soft text-danger'
-                    : isExpiring
-                      ? 'bg-sun text-sun-ink'
-                      : 'bg-mist text-forest',
-            ].join(' ')}
-        >
-            <Clock className="size-3" aria-hidden />
-            {expired ? 'Kedaluwarsa' : `${m}:${String(s).padStart(2, '0')}`}
-        </span>
+        <div className="w-full space-y-1.5">
+            {/* Bar */}
+            <div
+                className="h-1.5 w-full overflow-hidden rounded-full bg-mist"
+                role="progressbar"
+                aria-valuenow={secs}
+                aria-valuemin={0}
+                aria-valuemax={TOKEN_TTL_SEC}
+                aria-label={timeLabel}
+            >
+                <div
+                    className={`h-full rounded-full transition-[width] duration-1000 ease-linear ${barColor}`}
+                    style={{ width: `${pct * 100}%` }}
+                />
+            </div>
+
+            {/* Label waktu */}
+            <div
+                role="status"
+                aria-live="polite"
+                className={[
+                    'flex items-center justify-center gap-1.5 text-xs font-semibold',
+                    expired ? 'text-danger' : isExpiring ? 'text-sun-ink' : 'text-muted',
+                ].join(' ')}
+            >
+                <Clock className="size-3" aria-hidden />
+                <span>
+                    {expired ? 'Kedaluwarsa' : `${m}:${String(s).padStart(2, '0')}`}
+                </span>
+            </div>
+        </div>
     );
 }
 
+/** Tombol salin kode member — ikon berubah ke Check selama 2 detik */
 function CopyButton({ text }: { text: string }) {
     const [copied, setCopied] = useState(false);
 
@@ -123,15 +181,78 @@ function CopyButton({ text }: { text: string }) {
         <button
             type="button"
             onClick={handleCopy}
-            aria-label="Salin kode member"
-            className="rounded-lg p-1.5 text-muted transition-colors hover:text-forest focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-leaf"
+            aria-label={copied ? 'Kode berhasil disalin' : 'Salin kode member'}
+            className="min-h-[40px] min-w-[40px] rounded-lg p-1.5 text-muted
+                       transition-colors hover:text-forest
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-leaf"
         >
-            <Copy className={['size-4', copied ? 'text-leaf' : ''].join(' ')} aria-hidden />
+            {copied
+                ? <Check className="size-4 text-leaf" aria-hidden />
+                : <Copy className="size-4" aria-hidden />
+            }
         </button>
     );
 }
 
-// ── Layar status: claimed ─────────────────────────────────────────────────
+/** Modal QR layar penuh — latar putih, petunjuk kecerahan */
+function FullscreenQrModal({
+    payload,
+    onClose,
+}: {
+    payload: string;
+    onClose: () => void;
+}) {
+    // Tutup dengan Escape
+    useEffect(() => {
+        function onKey(e: KeyboardEvent) {
+            if (e.key === 'Escape') onClose();
+        }
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [onClose]);
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-white p-8"
+            role="dialog"
+            aria-modal="true"
+            aria-label="QR Code layar penuh"
+        >
+            {/* Tombol tutup */}
+            <button
+                type="button"
+                onClick={onClose}
+                aria-label="Tutup layar penuh"
+                className="absolute right-4 top-4 min-h-[40px] min-w-[40px]
+                           rounded-full p-2 text-ink/60 transition-colors
+                           hover:bg-mist hover:text-ink
+                           focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-leaf"
+            >
+                <X className="size-5" aria-hidden />
+            </button>
+
+            {/* QR Code besar */}
+            <QRCodeSVG
+                value={payload}
+                size={288}
+                level="M"
+                bgColor="#ffffff"
+                fgColor="#0b4d36"
+            />
+
+            {/* Petunjuk kecerahan */}
+            <div
+                className="flex items-center gap-2.5 rounded-2xl bg-sun px-5 py-3 text-sm text-sun-ink"
+                aria-live="polite"
+            >
+                <Sun className="size-5 shrink-0" aria-hidden />
+                <span>Naikkan kecerahan layar agar lebih mudah dipindai.</span>
+            </div>
+        </div>
+    );
+}
+
+// ── Layar claimed ─────────────────────────────────────────────────────────
 
 function ClaimedCard({ bankName }: { bankName?: string }) {
     return (
@@ -146,9 +267,11 @@ function ClaimedCard({ bankName }: { bankName?: string }) {
                         oleh <span className="font-semibold text-forest">{bankName}</span>
                     </p>
                 )}
-                <p className="mt-2 text-xs text-muted">Menunggu petugas menyelesaikan setoran…</p>
+                <p className="mt-2 text-xs text-muted">
+                    Menunggu petugas menyelesaikan setoran…
+                </p>
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted">
+            <div className="flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
                 <span className="size-2 animate-pulse rounded-full bg-leaf" aria-hidden />
                 Live
             </div>
@@ -156,7 +279,7 @@ function ClaimedCard({ bankName }: { bankName?: string }) {
     );
 }
 
-// ── Layar status: used (sukses) ───────────────────────────────────────────
+// ── Layar used (sukses) ───────────────────────────────────────────────────
 
 function SuccessCard({
     deposit,
@@ -176,7 +299,10 @@ function SuccessCard({
             </div>
 
             <div className="w-full space-y-2 rounded-2xl bg-white/70 px-5 py-4">
-                <RowInfo label="Total berat" value={`${Number(deposit.total_weight_kg).toFixed(2)} kg`} />
+                <RowInfo
+                    label="Total berat"
+                    value={`${Number(deposit.total_weight_kg).toFixed(2)} kg`}
+                />
                 <RowInfo
                     label="Poin diperoleh"
                     value={`+${deposit.total_points.toLocaleString('id-ID')}`}
@@ -192,13 +318,16 @@ function SuccessCard({
                 <button
                     type="button"
                     onClick={onReset}
-                    className="flex-1 rounded-xl border border-forest/30 py-2.5 text-sm font-semibold text-forest transition-colors hover:bg-white/60"
+                    className="flex-1 rounded-xl border border-forest/30 py-2.5 text-sm
+                               font-semibold text-forest transition-colors hover:bg-white/60"
                 >
                     Buat QR baru
                 </button>
                 <Link
                     href="/dashboard"
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-forest py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl
+                               bg-forest py-2.5 text-sm font-semibold text-white
+                               transition-colors hover:bg-forest-deep"
                 >
                     Dashboard
                     <ArrowRight className="size-4" aria-hidden />
@@ -208,7 +337,7 @@ function SuccessCard({
     );
 }
 
-// ── Layar status: expired ─────────────────────────────────────────────────
+// ── Layar expired ─────────────────────────────────────────────────────────
 
 function ExpiredCard({ onReset, loading }: { onReset: () => void; loading: boolean }) {
     return (
@@ -218,22 +347,37 @@ function ExpiredCard({ onReset, loading }: { onReset: () => void; loading: boole
             </span>
             <div>
                 <p className="font-semibold text-ink">QR Kedaluwarsa</p>
-                <p className="mt-1 text-xs text-muted">Token sudah tidak berlaku. Buat yang baru untuk melanjutkan.</p>
+                <p className="mt-1 text-xs text-muted">
+                    Token sudah tidak berlaku. Buat yang baru untuk melanjutkan.
+                </p>
             </div>
             <button
                 type="button"
                 onClick={onReset}
                 disabled={loading}
-                className="flex items-center gap-2 rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep disabled:opacity-50"
+                className="flex min-h-[40px] items-center gap-2 rounded-xl bg-forest px-5
+                           py-2.5 text-sm font-semibold text-white transition-colors
+                           hover:bg-forest-deep disabled:opacity-50"
             >
-                <RefreshCw className={['size-4', loading ? 'animate-spin' : ''].join(' ')} aria-hidden />
+                <RefreshCw
+                    className={['size-4', loading ? 'animate-spin' : ''].join(' ')}
+                    aria-hidden
+                />
                 {loading ? 'Membuat QR…' : 'Buat QR baru'}
             </button>
         </div>
     );
 }
 
-function RowInfo({ label, value, valueClass = 'text-ink' }: { label: string; value: string; valueClass?: string }) {
+function RowInfo({
+    label,
+    value,
+    valueClass = 'text-ink',
+}: {
+    label: string;
+    value: string;
+    valueClass?: string;
+}) {
     return (
         <div className="flex items-center justify-between text-sm">
             <span className="text-muted">{label}</span>
@@ -242,7 +386,54 @@ function RowInfo({ label, value, valueClass = 'text-ink' }: { label: string; val
     );
 }
 
-// ── Skeleton loading ──────────────────────────────────────────────────────
+// ── Bagian "Cara pakai" ───────────────────────────────────────────────────
+
+const HOW_TO_STEPS = [
+    {
+        step: '1',
+        title: 'Buka halaman ini',
+        desc: 'QR aktif otomatis dan berlaku 5 menit.',
+    },
+    {
+        step: '2',
+        title: 'Tunjukkan ke petugas',
+        desc: 'Petugas bank sampah akan memindai QR Anda.',
+    },
+    {
+        step: '3',
+        title: 'Tunggu konfirmasi',
+        desc: 'Poin dikreditkan setelah setoran dikonfirmasi.',
+    },
+] as const;
+
+function HowToSection() {
+    return (
+        <section aria-labelledby="how-to-heading" className="rounded-2xl border border-line bg-white p-5">
+            <h2 id="how-to-heading" className="mb-4 text-sm font-semibold text-ink">
+                Cara pakai
+            </h2>
+            <ol className="space-y-3">
+                {HOW_TO_STEPS.map(({ step, title, desc }) => (
+                    <li key={step} className="flex gap-3">
+                        <span
+                            className="flex size-6 shrink-0 items-center justify-center
+                                       rounded-full bg-forest text-xs font-bold text-white"
+                            aria-hidden
+                        >
+                            {step}
+                        </span>
+                        <div>
+                            <p className="text-sm font-semibold text-ink">{title}</p>
+                            <p className="text-xs text-muted">{desc}</p>
+                        </div>
+                    </li>
+                ))}
+            </ol>
+        </section>
+    );
+}
+
+// ── Skeleton ──────────────────────────────────────────────────────────────
 
 function PageSkeleton() {
     return (
@@ -262,24 +453,22 @@ function PageSkeleton() {
 
 // ── Main Page ─────────────────────────────────────────────────────────────
 
-const TOKEN_POLL_MS      = 3_000;   // polling status setiap 3 detik
-const REFRESH_BEFORE_SEC = 30;      // buat token baru 30 detik sebelum expired
-
 export default function MemberCardPage() {
     const { user }  = useAuth();
     const { toast } = useToast();
 
-    const [card, setCard]           = useState<MemberCard | null>(null);
-    const [tokenData, setTokenData] = useState<TokenData | null>(null);
-    const [tokenStatus, setTokenStatus] = useState<TokenStatus>('active');
-    const [statusExtra, setStatusExtra] = useState<StatusResponse | null>(null);
-    const [generating, setGenerating]   = useState(false);
-    const [pageLoading, setPageLoading] = useState(true);
+    const [card, setCard]             = useState<MemberCard | null>(null);
+    const [tokenData, setTokenData]   = useState<TokenData | null>(null);
+    const [tokenStatus, setTokenStatus]   = useState<TokenStatus>('active');
+    const [statusExtra, setStatusExtra]   = useState<StatusResponse | null>(null);
+    const [generating, setGenerating]     = useState(false);
+    const [pageLoading, setPageLoading]   = useState(true);
+    const [showFullscreen, setShowFullscreen] = useState(false);
 
-    const pollRef       = useRef<ReturnType<typeof setInterval> | null>(null);
-    const refreshRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const tokenRef      = useRef<TokenData | null>(null);   // always-current ref for callbacks
-    const statusRef     = useRef<TokenStatus>('active');
+    const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+    const refreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const tokenRef   = useRef<TokenData | null>(null);   // always-current for callbacks
+    const statusRef  = useRef<TokenStatus>('active');
 
     // Sync refs
     useEffect(() => { tokenRef.current = tokenData; }, [tokenData]);
@@ -290,11 +479,14 @@ export default function MemberCardPage() {
     useEffect(() => {
         api.get<{ data: MemberCard }>('/user/member-card')
             .then((r) => setCard(r.data))
-            .catch((err) => toast(firstError(err), 'error'))
+            .catch((err) => {
+                const apiErr = err as ApiError;
+                toast(apiErr?.message ?? 'Gagal memuat data kartu.', 'error');
+            })
             .finally(() => setPageLoading(false));
     }, [toast]);
 
-    // ── Generate token ────────────────────────────────────────────────
+    // ── Generate / issue token ────────────────────────────────────────
 
     const generateToken = useCallback(async () => {
         setGenerating(true);
@@ -310,17 +502,27 @@ export default function MemberCardPage() {
             scheduleRefresh(td);
             startPoll(td.token);
         } catch (err) {
-            toast(firstError(err), 'error');
+            const apiErr = err as ApiError;
+            // token_in_process: token sedang diklaim bank. Tampilkan claimed
+            // dan polling dengan token lama yang masih ada.
+            if (apiErr?.code === 'token_in_process') {
+                setTokenStatus('claimed');
+                if (tokenRef.current) {
+                    startPoll(tokenRef.current.token);
+                }
+            } else {
+                toast(apiErr?.message ?? 'Gagal membuat token.', 'error');
+            }
         } finally {
             setGenerating(false);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [toast]);
 
     // Buat token pertama kali setelah card dimuat
     useEffect(() => {
         if (!pageLoading) generateToken();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pageLoading]);
 
     // ── Polling status token ──────────────────────────────────────────
@@ -338,7 +540,6 @@ export default function MemberCardPage() {
     }
 
     async function pollStatus(token: string) {
-        // Jangan poll jika sudah terminal
         if (statusRef.current === 'used' || statusRef.current === 'expired') {
             stopPoll();
             return;
@@ -354,7 +555,8 @@ export default function MemberCardPage() {
             if (data.status === 'used') {
                 stopPoll();
                 clearRefreshTimer();
-                // Refresh saldo kartu
+                setShowFullscreen(false);
+                // Refresh saldo StatCard
                 api.get<{ data: MemberCard }>('/user/member-card')
                     .then((r) => setCard(r.data))
                     .catch(() => {});
@@ -362,9 +564,10 @@ export default function MemberCardPage() {
             if (data.status === 'expired') {
                 stopPoll();
                 clearRefreshTimer();
+                setShowFullscreen(false);
             }
         } catch {
-            // abaikan error poll
+            // abaikan error poll sementara
         }
     }
 
@@ -376,7 +579,6 @@ export default function MemberCardPage() {
         const refreshAfter = Math.max(0, msToExpiry - REFRESH_BEFORE_SEC * 1000);
 
         refreshRef.current = setTimeout(() => {
-            // Hanya refresh jika masih di status active (belum dipindai)
             if (statusRef.current === 'active') {
                 generateToken();
             }
@@ -390,23 +592,23 @@ export default function MemberCardPage() {
         }
     }
 
-    // ── Hentikan polling saat tab tidak aktif ─────────────────────────
+    // ── Tab visibility ────────────────────────────────────────────────
 
     useEffect(() => {
-        function onVisible() {
+        function onVisibility() {
             if (document.visibilityState === 'hidden') {
                 stopPoll();
                 clearRefreshTimer();
             } else {
-                // Tab aktif kembali → buat token baru (yang lama mungkin expired)
+                // Tab aktif kembali → cek status + buat token baru bila perlu
                 if (statusRef.current !== 'used') {
                     generateToken();
                 }
             }
         }
-        document.addEventListener('visibilitychange', onVisible);
-        return () => document.removeEventListener('visibilitychange', onVisible);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        document.addEventListener('visibilitychange', onVisibility);
+        return () => document.removeEventListener('visibilitychange', onVisibility);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Cleanup on unmount
@@ -416,10 +618,11 @@ export default function MemberCardPage() {
 
     function handleReset() {
         setStatusExtra(null);
+        setShowFullscreen(false);
         generateToken();
     }
 
-    // ── Render ────────────────────────────────────────────────────────
+    // ── Derived ───────────────────────────────────────────────────────
 
     if (pageLoading) return <PageSkeleton />;
 
@@ -427,125 +630,183 @@ export default function MemberCardPage() {
         ? new Date(tokenData.expires_at).getTime() - Date.now() <= REFRESH_BEFORE_SEC * 1000
         : false;
 
-    return (
-        <div className="mx-auto max-w-sm space-y-5">
-            {/* Header */}
-            <div className="flex items-center gap-2.5">
-                <CreditCard className="size-5 text-forest" aria-hidden />
-                <h1 className="font-serif text-xl font-medium text-forest">Kartu Member</h1>
-            </div>
+    const initials = (card?.name ?? user?.name ?? 'U').charAt(0).toUpperCase();
 
-            {/* Kartu utama */}
-            <div className="overflow-hidden rounded-2xl border border-line bg-white">
-                {/* Strip atas — warna berubah sesuai status */}
-                <div
-                    className={[
-                        'h-1.5',
-                        tokenStatus === 'used'    ? 'bg-forest'
-                        : tokenStatus === 'claimed' ? 'bg-leaf'
-                        : tokenStatus === 'expired' ? 'bg-danger'
-                        : 'bg-mist',
-                    ].join(' ')}
-                    aria-hidden
+    return (
+        <>
+            {/* ── Fullscreen QR modal ────────────────────────────────── */}
+            {showFullscreen && tokenData && (
+                <FullscreenQrModal
+                    payload={tokenData.payload}
+                    onClose={() => setShowFullscreen(false)}
+                />
+            )}
+
+            <div className="mx-auto max-w-sm space-y-5">
+                {/* ── Header ───────────────────────────────────────────── */}
+                <div className="flex items-center gap-2.5">
+                    <QrCode className="size-5 text-forest" aria-hidden />
+                    <h1 className="font-serif text-xl font-medium text-forest">Kartu Member</h1>
+                </div>
+
+                {/* ── StatCard: saldo poin ──────────────────────────────── */}
+                <StatCard
+                    icon={Coins}
+                    label="Saldo poin saat ini"
+                    value={card?.points_balance ?? 0}
+                    unit="poin"
+                    tone="mint"
                 />
 
-                <div className="flex flex-col items-center gap-5 p-6">
-                    {/* Avatar + nama */}
-                    <div className="text-center">
-                        <div
-                            className="mx-auto mb-2 grid size-14 place-items-center rounded-full bg-forest text-xl font-semibold text-white"
-                            aria-hidden
-                        >
-                            {(card?.name ?? user?.name ?? 'U').charAt(0).toUpperCase()}
-                        </div>
-                        <p className="font-semibold text-ink">{card?.name ?? user?.name}</p>
-                        <p className="text-sm text-muted">
-                            {(card?.points_balance ?? 0).toLocaleString('id-ID')} poin
-                        </p>
-                    </div>
+                {/* ── Kartu utama ───────────────────────────────────────── */}
+                <div className="overflow-hidden rounded-2xl border border-line bg-white">
+                    {/* Strip status atas */}
+                    <div
+                        className={[
+                            'h-1.5',
+                            tokenStatus === 'used'    ? 'bg-forest'
+                            : tokenStatus === 'claimed' ? 'bg-leaf'
+                            : tokenStatus === 'expired' ? 'bg-danger'
+                            : 'bg-mist',
+                        ].join(' ')}
+                        aria-hidden
+                    />
 
-                    {/* Status body */}
-                    {tokenStatus === 'used' && statusExtra?.deposit && (
-                        <SuccessCard deposit={statusExtra.deposit} onReset={handleReset} />
-                    )}
-
-                    {tokenStatus === 'expired' && (
-                        <ExpiredCard onReset={handleReset} loading={generating} />
-                    )}
-
-                    {tokenStatus === 'claimed' && (
-                        <ClaimedCard bankName={statusExtra?.waste_bank_name} />
-                    )}
-
-                    {tokenStatus === 'active' && (
-                        <>
-                            {/* QR Code — value = payload (gogreen://member/{token}) */}
+                    <div className="flex flex-col items-center gap-5 p-6">
+                        {/* Avatar + nama */}
+                        <div className="w-full text-center">
                             <div
-                                className="rounded-2xl border-2 border-line p-3"
-                                aria-label="QR Code kartu member"
+                                className="mx-auto mb-2 grid size-14 place-items-center
+                                           rounded-full bg-forest text-xl font-semibold text-white"
+                                aria-hidden
                             >
-                                {tokenData ? (
-                                    <QRCodeSVG
-                                        value={tokenData.payload}
-                                        size={200}
-                                        level="M"
-                                        bgColor="#ffffff"
-                                        fgColor="#0b4d36"
-                                    />
-                                ) : (
-                                    <QrPlaceholder />
-                                )}
+                                {initials}
                             </div>
-
-                            {tokenData && (
-                                <CountdownBadge
-                                    expiresAt={tokenData.expires_at}
-                                    isExpiring={isExpiring}
-                                />
-                            )}
-
-                            {/* Member code + salin */}
-                            {card && (
-                                <div className="flex w-full items-center gap-2 rounded-xl border border-line bg-paper px-4 py-2.5">
-                                    <span className="flex-1 text-center font-mono text-base font-semibold tracking-widest text-ink">
-                                        {card.member_code}
-                                    </span>
-                                    <CopyButton text={card.member_code} />
-                                </div>
-                            )}
-
-                            <p className="text-center text-xs leading-relaxed text-muted">
-                                Tunjukkan QR ini ke petugas bank sampah saat menyetor.
-                                <br />
-                                QR berlaku <strong>5 menit</strong> dan hanya bisa digunakan sekali.
+                            <p className="font-semibold text-ink">
+                                {card?.name ?? user?.name}
                             </p>
+                        </div>
 
-                            <button
-                                type="button"
-                                onClick={handleReset}
-                                disabled={generating}
-                                aria-label="Buat QR baru"
-                                className="flex items-center gap-2 rounded-xl border border-forest/30 px-4 py-2 text-xs font-semibold text-forest transition-colors hover:bg-mist disabled:opacity-50"
-                            >
-                                <RefreshCw
-                                    className={['size-3.5', generating ? 'animate-spin' : ''].join(' ')}
-                                    aria-hidden
-                                />
-                                {generating ? 'Membuat QR…' : 'Buat ulang QR'}
-                            </button>
-                        </>
-                    )}
+                        {/* ── Status body ────────────────────────────────── */}
+
+                        {tokenStatus === 'used' && statusExtra?.deposit && (
+                            <SuccessCard
+                                deposit={statusExtra.deposit}
+                                onReset={handleReset}
+                            />
+                        )}
+
+                        {tokenStatus === 'expired' && (
+                            <ExpiredCard onReset={handleReset} loading={generating} />
+                        )}
+
+                        {tokenStatus === 'claimed' && (
+                            <ClaimedCard bankName={statusExtra?.waste_bank_name} />
+                        )}
+
+                        {tokenStatus === 'active' && (
+                            <>
+                                {/* QR Code 240px + tombol layar penuh */}
+                                <div className="relative">
+                                    <div
+                                        className="rounded-2xl border-2 border-line bg-white p-3"
+                                        aria-label="QR Code kartu member"
+                                    >
+                                        {tokenData ? (
+                                            <QRCodeSVG
+                                                value={tokenData.payload}
+                                                size={240}
+                                                level="M"
+                                                bgColor="#ffffff"
+                                                fgColor="#0b4d36"
+                                            />
+                                        ) : (
+                                            <QrPlaceholder />
+                                        )}
+                                    </div>
+
+                                    {/* Tombol Maximize — pojok kanan atas */}
+                                    {tokenData && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowFullscreen(true)}
+                                            aria-label="Tampilkan QR layar penuh"
+                                            className="absolute -right-2 -top-2 min-h-[40px] min-w-[40px]
+                                                       grid place-items-center rounded-full
+                                                       border border-line bg-white text-muted shadow-sm
+                                                       transition-colors hover:text-forest
+                                                       focus-visible:outline-2 focus-visible:outline-offset-2
+                                                       focus-visible:outline-leaf"
+                                        >
+                                            <Maximize className="size-4" aria-hidden />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Progress bar + countdown */}
+                                {tokenData && (
+                                    <div className="w-full px-1">
+                                        <CountdownBar
+                                            expiresAt={tokenData.expires_at}
+                                            isExpiring={isExpiring}
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Member code + salin */}
+                                {card && (
+                                    <div className="flex w-full items-center gap-2 rounded-xl
+                                                    border border-line bg-paper px-4 py-2">
+                                        <span className="flex-1 text-center font-mono text-base
+                                                         font-semibold tracking-widest text-ink">
+                                            {card.member_code}
+                                        </span>
+                                        <CopyButton text={card.member_code} />
+                                    </div>
+                                )}
+
+                                <p className="text-center text-xs leading-relaxed text-muted">
+                                    Tunjukkan QR ini ke petugas bank sampah saat menyetor.
+                                    <br />
+                                    Berlaku <strong>5 menit</strong> dan hanya bisa digunakan sekali.
+                                </p>
+
+                                {/* Tombol buat ulang */}
+                                <button
+                                    type="button"
+                                    onClick={handleReset}
+                                    disabled={generating}
+                                    aria-label="Buat QR baru"
+                                    className="flex min-h-[40px] items-center gap-2 rounded-xl
+                                               border border-forest/30 px-4 py-2 text-xs
+                                               font-semibold text-forest transition-colors
+                                               hover:bg-mist disabled:opacity-50"
+                                >
+                                    <RefreshCw
+                                        className={['size-3.5', generating ? 'animate-spin' : ''].join(' ')}
+                                        aria-hidden
+                                    />
+                                    {generating ? 'Membuat QR…' : 'Buat ulang QR'}
+                                </button>
+                            </>
+                        )}
+                    </div>
                 </div>
-            </div>
 
-            {/* Info tambahan */}
-            <p className="text-center text-xs text-muted">
-                Atau tunjukkan kode manual{' '}
-                <span className="font-mono font-semibold text-ink">
-                    {card?.member_code ?? '—'}
-                </span>{' '}
-                jika kamera tidak tersedia.
-            </p>
-        </div>
+                {/* ── Kode manual (cadangan) ────────────────────────────── */}
+                {card && (
+                    <p className="text-center text-xs text-muted">
+                        Cadangan: tunjukkan kode{' '}
+                        <span className="font-mono font-semibold text-ink">
+                            {card.member_code}
+                        </span>{' '}
+                        bila kamera petugas tidak tersedia.
+                    </p>
+                )}
+
+                {/* ── Cara pakai ────────────────────────────────────────── */}
+                <HowToSection />
+            </div>
+        </>
     );
 }

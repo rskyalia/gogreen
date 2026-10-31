@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui';
 import { useToast } from '@/components/ui';
 import { api, firstError } from '@/lib/api';
@@ -35,8 +35,7 @@ const DAY_LABELS: Record<string, string> = {
 };
 const DAY_ORDER = ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu'];
 
-export default function WasteBankDetailClient() {
-  const { id }    = useParams<{ id: string }>();
+export default function WasteBankDetailClient({ id }: { id: string }) {
   const router    = useRouter();
   const { toast } = useToast();
 

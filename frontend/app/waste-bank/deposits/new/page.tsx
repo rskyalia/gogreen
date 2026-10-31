@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
     AlertTriangle,
     ArrowLeft,
@@ -32,6 +33,7 @@ import {
     X,
 } from 'lucide-react';
 import { api, firstError } from '@/lib/api';
+import { depositSession } from '@/store/depositSession';
 import { useToast } from '@/components/ui';
 
 // Fallback untuk env yang tidak punya crypto.randomUUID (sangat jarang di modern browser)
@@ -658,6 +660,7 @@ function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () =>
 
 export default function NewDepositPage() {
     const { toast } = useToast();
+    const router    = useRouter();
 
     const [step, setStep]     = useState<Step>('scan');
     const [error, setError]   = useState('');
@@ -683,6 +686,38 @@ export default function NewDepositPage() {
         api.get<{ data: Category[] }>('/waste-bank/deposit-categories')
             .then((r) => setCategories(r.data))
             .catch(() => {});
+    }, []);
+
+    // ── Inject session dari halaman scan ──────────────────────────────
+    //
+    // Bila user datang dari /waste-bank/members/scan, depositSession sudah terisi.
+    // Langsung lompat ke step 'items' dengan data member + token dari session.
+    // Bila session kosong atau klaim sudah lewat, arahkan ke halaman scan.
+
+    useEffect(() => {
+        const sess = depositSession.get();
+
+        if (sess && depositSession.isValid()) {
+            // Populasi state dari session
+            setMember({
+                id: sess.member.id,
+                name: sess.member.name,
+                member_code: sess.member.member_code,
+                avatar: sess.member.avatar,
+                // points_balance tidak tersedia di session — isi 0 sebagai default
+                points_balance: 0,
+            });
+            setToken(sess.token ?? null);
+            setMemberCode(sess.code ?? null);
+            setClaimedAt(sess.claimedAt);
+            setStep('items');
+        } else if (sess && !depositSession.isValid()) {
+            // Session ada tapi sudah expired → kembali ke scan
+            depositSession.clear();
+            router.replace('/waste-bank/members/scan');
+        }
+        // Bila tidak ada session, biarkan step tetap 'scan' (entry langsung)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // ── Lookup setelah scan ───────────────────────────────────────────
@@ -751,6 +786,7 @@ export default function NewDepositPage() {
             setResult(res);
             setShowModal(false);
             setStep('success');
+            depositSession.clear(); // liberat sesi setelah setoran berhasil
         } catch (err) {
             const apiErr = err as { code?: string };
             toast(errorMessage(apiErr?.code), 'error');
@@ -761,6 +797,7 @@ export default function NewDepositPage() {
     }
 
     function handleNewDeposit() {
+        depositSession.clear();
         setStep('scan');
         setMember(null);
         setToken(null);

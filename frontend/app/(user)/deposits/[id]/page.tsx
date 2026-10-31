@@ -1,10 +1,15 @@
 import { Suspense } from 'react';
 import DepositDetailClient from './_client';
 
-// Route dinamis — tidak di-prerender secara statis
-export const dynamic = 'force-dynamic';
+export const instant = false;
 
-export default function DepositDetailPage() {
+export default async function DepositDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
   return (
     <Suspense fallback={
       <div className="mx-auto max-w-lg space-y-4">
@@ -12,7 +17,7 @@ export default function DepositDetailPage() {
         <div className="h-60 animate-pulse rounded-2xl bg-line" />
       </div>
     }>
-      <DepositDetailClient />
+      <DepositDetailClient id={id} />
     </Suspense>
   );
 }

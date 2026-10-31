@@ -15,6 +15,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
 
 export interface ApiError {
   message: string;
+  code?: string;
   errors?: Record<string, string[]>;
   status: number;
 }
@@ -83,9 +84,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (!res.ok) {
-    const err = body as { message?: string; errors?: Record<string, string[]> };
+    const err = body as { message?: string; code?: string; errors?: Record<string, string[]> };
     const apiError: ApiError = {
       message: err.message ?? 'Terjadi kesalahan.',
+      code: err.code,
       errors: err.errors,
       status: res.status,
     };
@@ -227,9 +229,10 @@ export async function uploadForm<T>(path: string, formData: FormData): Promise<T
   }
 
   if (!res.ok) {
-    const err = body as { message?: string; errors?: Record<string, string[]> };
+    const err = body as { message?: string; code?: string; errors?: Record<string, string[]> };
     const apiError: ApiError = {
       message: err.message ?? 'Terjadi kesalahan.',
+      code: err.code,
       errors: err.errors,
       status: res.status,
     };

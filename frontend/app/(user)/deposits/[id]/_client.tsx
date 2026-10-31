@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, useToast } from '@/components/ui';
 import { api, firstError } from '@/lib/api';
 import { ArrowLeft, Scale, Coins, CalendarDays, Building2 } from 'lucide-react';
@@ -22,8 +22,7 @@ interface DepositDetail {
   created_at: string;
 }
 
-export default function DepositDetailClient() {
-  const { id }    = useParams<{ id: string }>();
+export default function DepositDetailClient({ id }: { id: string }) {
   const router    = useRouter();
   const { toast } = useToast();
 

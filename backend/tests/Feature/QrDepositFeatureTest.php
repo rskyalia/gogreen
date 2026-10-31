@@ -651,9 +651,12 @@ class QrDepositFeatureTest extends TestCase
 
         $otherUser = User::factory()->create(['role' => 'user']);
 
+        // Spec: token milik user lain → 404 (tidak bocorkan keberadaannya)
         $this->actingAs($otherUser)
             ->getJson('/api/user/member-token/status?token='.$token)
-            ->assertStatus(422);
+            ->assertStatus(404)
+            ->assertJsonPath('data.status', null)
+            ->assertJsonPath('code', 'token_invalid');
     }
 
     #[Test]

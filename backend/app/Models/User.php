@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use App\Services\MemberCodeService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -46,21 +46,14 @@ class User extends Authenticatable
 
     protected static function booted(): void
     {
-        static::creating(function (User $user) {
+        // Gunakan event "created" (bukan "creating") agar ID user sudah tersedia.
+        // Format: GG-{6-digit zero-padded ID} — lihat MemberCodeService.
+        static::created(function (User $user): void {
             if ($user->role === 'user' && empty($user->member_code)) {
-                $user->member_code = static::generateUniqueMemberCode();
+                $user->member_code = app(MemberCodeService::class)->generate($user);
+                $user->saveQuietly();
             }
         });
-    }
-
-    public static function generateUniqueMemberCode(): string
-    {
-        do {
-            // Format: GG-XXXXXX  (huruf kapital + angka, 6 karakter)
-            $code = 'GG-'.strtoupper(Str::random(6));
-        } while (static::where('member_code', $code)->exists());
-
-        return $code;
     }
 
     // ── Role helpers ──────────────────────────────────────────────────────

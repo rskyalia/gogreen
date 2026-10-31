@@ -68,6 +68,9 @@ Route::middleware('auth:sanctum')->group(function () {
             // Member lookup — ?token= (QR) atau ?code= (manual, cadangan)
             Route::middleware('throttle:member-lookup')->get('members/lookup', [DepositController::class, 'findMember']);
 
+            // Release klaim token — "Pindai ulang"
+            Route::post('members/release', [DepositController::class, 'releaseMember']);
+
             // Kategori yang diterima bank ini
             Route::get('deposit-categories', [DepositController::class, 'depositCategories']);
 
