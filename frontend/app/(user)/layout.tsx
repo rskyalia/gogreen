@@ -1,7 +1,5 @@
-import { Suspense } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { Topbar } from '@/components/layout/Topbar';
-import { UserBottomNav } from '@/components/layout/UserBottomNav';
+import { Topbar }  from '@/components/layout/Topbar';
 
 // Nonaktifkan Partial Prerender untuk seluruh subtree (user) —
 // sama dengan pola admin/layout.tsx — agar Client Component hooks
@@ -11,7 +9,9 @@ export const instant = false;
 export default function UserLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-paper">
-      {/* Sidebar desktop — fixed kiri, w-64, hanya muncul lg ke atas */}
+      {/* Sidebar desktop (fixed kiri, w-64, lg ke atas) +
+          Hamburger button mobile (fixed, z-30, lg:hidden) +
+          Mobile drawer — semua dirender dari komponen Sidebar */}
       <Sidebar variant="user" />
 
       {/* Area kanan sidebar */}
@@ -19,17 +19,12 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
         <Topbar />
         <main
           id="main-content"
-          className="flex-1 p-4 pb-24 sm:p-6 lg:pb-8"
+          className="flex-1 p-4 pb-8 sm:p-6 lg:pb-8"
           tabIndex={-1}
         >
           {children}
         </main>
       </div>
-
-      {/* Bottom nav mobile */}
-      <Suspense fallback={null}>
-        <UserBottomNav />
-      </Suspense>
     </div>
   );
 }

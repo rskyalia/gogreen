@@ -105,9 +105,12 @@ export function Topbar({ title }: TopbarProps) {
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-line bg-white px-6">
-      {/* Judul halaman (opsional) */}
-      <div className="min-w-0">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-line bg-white px-4 sm:px-6">
+      {/* Kiri: spacer untuk hamburger mobile (tombol ada di Sidebar.tsx) */}
+      <div className="w-9 shrink-0 lg:hidden" aria-hidden />
+
+      {/* Judul halaman (desktop) */}
+      <div className="hidden min-w-0 lg:block">
         {title ? (
           <p className="truncate text-sm font-semibold text-ink">{title}</p>
         ) : (
