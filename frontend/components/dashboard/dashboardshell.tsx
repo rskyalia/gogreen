@@ -204,7 +204,7 @@ export default function DashboardShell() {
 
     return (
         <div className="min-h-screen bg-paper">
-            <aside className="fixed left-0 top-0 z-30 hidden h-screen w-64 flex-col border-r border-line bg-white p-5 lg:flex">
+            <aside className="fixed left-0 top-0 z-30 hidden h-screen w-60 flex-col border-r border-line bg-white p-5 lg:flex">
                 <div className="flex items-center justify-between">
                     <Logo />
 
@@ -335,7 +335,7 @@ export default function DashboardShell() {
             </aside>
 
             {/* ── MAIN CONTENT AREA ── */}
-            <div className="min-w-0 lg:ml-64">
+            <div className="min-w-0 lg:ml-60">
                 {/* Mobile Header */}
                 <header className="flex h-14 items-center justify-between border-b border-line bg-white px-5 lg:hidden">
                     <Logo />
@@ -360,7 +360,7 @@ export default function DashboardShell() {
                 </header>
 
                 {/* Dynamic Content Views */}
-                <main className="mx-auto w-full max-w-[1600px] p-5 pb-28 sm:p-8 lg:px-10 lg:py-8 lg:pb-10">
+                <main className="mx-auto w-full max-w-[1400px] p-4 pb-28 sm:p-6 lg:px-8 lg:py-8 lg:pb-10">
                     {view === "dashboard" && (
                         <OverviewView
                             name={name.split(" ")[0]}
@@ -395,24 +395,28 @@ export default function DashboardShell() {
             {/* ── MOBILE BOTTOM NAV ── */}
             <nav
                 aria-label="Menu dashboard"
-                className="fixed inset-x-0 bottom-0 z-30 grid grid-flow-col auto-cols-fr border-t border-line bg-white/95 backdrop-blur lg:hidden"
+                className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 backdrop-blur lg:hidden"
             >
-                {nav.map(({ key, label, Icon }) => {
-                    const on = view === key;
-                    return (
-                        <button
-                            key={key}
-                            type="button"
-                            onClick={() => go(key)}
-                            aria-current={on ? "page" : undefined}
-                            className={`flex flex-col items-center gap-1 px-0.5 py-2.5 text-center text-[10px] font-semibold leading-tight ${on ? "text-forest" : "text-muted"
-                                }`}
-                        >
-                            <Icon className="size-5" aria-hidden />
-                            {label}
-                        </button>
-                    );
-                })}
+                <ul className="flex overflow-x-auto scrollbar-none" role="list">
+                    {nav.map(({ key, label, Icon }) => {
+                        const on = view === key;
+                        return (
+                            <li key={key} className="flex-1 min-w-[3.5rem]">
+                                <button
+                                    type="button"
+                                    onClick={() => go(key)}
+                                    aria-current={on ? "page" : undefined}
+                                    className={`flex w-full flex-col items-center gap-0.5 px-1 py-2.5 text-center text-[9px] font-semibold leading-tight transition-colors ${
+                                        on ? "text-forest" : "text-muted"
+                                    }`}
+                                >
+                                    <Icon className="size-[18px] shrink-0" aria-hidden />
+                                    <span className="line-clamp-1 w-full">{label}</span>
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
             </nav>
         </div>
     );

@@ -22,20 +22,22 @@ export default function ImpactView({
     return (
         <div className="space-y-5">
             <h1 className="font-serif text-2xl font-medium text-forest sm:text-3xl">Dampak saya</h1>
-            <section className="rounded-[28px] border border-line bg-white p-6 sm:p-8">
+            <section className="rounded-[28px] border border-line bg-white p-5 sm:p-8">
                 <p className="text-sm text-muted">Sampah dipilah minggu ini</p>
                 <p className="mt-1 font-serif text-3xl font-medium text-forest">
                     {week.reduce((s, w) => s + w.kg, 0).toLocaleString("id-ID", { maximumFractionDigits: 1 })} kg
                 </p>
-                <ul className="mt-6 flex h-44 items-end gap-3" aria-label="Grafik harian">
-                    {week.map((w) => (
-                        <li key={w.day} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
-                            <span className="text-[11px] tabular-nums text-muted">{w.kg}</span>
-                            <div className="w-full rounded-t-lg bg-leaf" style={{ height: `${(w.kg / max) * 100}%` }} />
-                            <span className="text-xs text-ink">{w.day}</span>
-                        </li>
-                    ))}
-                </ul>
+                <div className="mt-6 overflow-x-auto">
+                    <ul className="flex h-44 min-w-[280px] items-end gap-2 sm:gap-3" aria-label="Grafik harian">
+                        {week.map((w) => (
+                            <li key={w.day} className="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
+                                <span className="text-[10px] tabular-nums text-muted">{w.kg}</span>
+                                <div className="w-full rounded-t-lg bg-leaf" style={{ height: `${(w.kg / max) * 100}%` }} />
+                                <span className="text-[11px] text-ink">{w.day}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             </section>
             <MyPosts items={submissions} onUpload={onUpload} />
         </div>
