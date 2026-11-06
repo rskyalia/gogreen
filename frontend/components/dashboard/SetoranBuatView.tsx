@@ -67,9 +67,9 @@ function Step({
     done: boolean;
 }) {
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
             <span
-                className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold transition-colors ${
+                className={`grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold transition-colors sm:size-7 sm:text-xs ${
                     done
                         ? "bg-forest text-white"
                         : active
@@ -77,10 +77,10 @@ function Step({
                           : "bg-line text-muted"
                 }`}
             >
-                {done ? <CheckCircle2 className="size-4" /> : n}
+                {done ? <CheckCircle2 className="size-3.5" /> : n}
             </span>
             <span
-                className={`text-xs font-semibold ${active || done ? "text-ink" : "text-muted"}`}
+                className={`hidden text-[11px] font-semibold sm:block sm:text-xs ${active || done ? "text-ink" : "text-muted"}`}
             >
                 {label}
             </span>
@@ -282,7 +282,7 @@ function CategoryPicker({
             </button>
 
             {open && (
-                <div className="absolute left-0 top-full z-10 mt-1 w-72 overflow-hidden rounded-2xl border border-line bg-white shadow-lg">
+                <div className="absolute left-0 top-full z-20 mt-1 w-full max-h-52 overflow-y-auto rounded-2xl border border-line bg-white shadow-lg sm:w-72">
                     {available.map((cat) => (
                         <button
                             key={cat.id}
@@ -294,7 +294,7 @@ function CategoryPicker({
                             className="flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors hover:bg-mist"
                         >
                             <span className="font-medium text-ink">{cat.name}</span>
-                            <span className="text-xs text-muted">{cat.points_per_kg} poin/kg</span>
+                            <span className="ml-3 shrink-0 text-xs text-muted">{cat.points_per_kg} poin/kg</span>
                         </button>
                     ))}
                 </div>
@@ -515,8 +515,8 @@ export default function SetoranBuatView({ onGoHistory }: SetoranBuatViewProps) {
             </header>
 
             {/* Step indicator */}
-            <div className="flex items-center gap-3 rounded-2xl border border-line bg-white px-5 py-4">
-                <Step n={1} label="Pilih bank sampah" active={step === 1} done={step > 1} />
+            <div className="flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 sm:gap-3 sm:px-5 sm:py-4">
+                <Step n={1} label="Pilih bank" active={step === 1} done={step > 1} />
                 <div className="h-px flex-1 bg-line" aria-hidden />
                 <Step n={2} label="Tambah sampah" active={step === 2} done={step > 2} />
                 <div className="h-px flex-1 bg-line" aria-hidden />

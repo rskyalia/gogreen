@@ -98,9 +98,9 @@ const formatToday = () =>
 function TodayChip() {
     const today = useSyncExternalStore(noopSubscribe, formatToday, () => "");
     return (
-        <div className="flex min-w-[14rem] items-center gap-2.5 rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-ink/75">
+        <div className="flex w-full items-center gap-2.5 rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-ink/75 sm:w-auto sm:min-w-[14rem]">
             <CalendarDays className="size-4 shrink-0 text-forest" aria-hidden />
-            <span>{today || "\u00A0"}</span>
+            <span className="truncate">{today || "\u00A0"}</span>
         </div>
     );
 }
@@ -198,16 +198,16 @@ export default function OverviewView({ name, onScan }: { name: string; onScan: (
     return (
         <div className="space-y-5">
             {/* Header */}
-            <header className="flex flex-wrap items-end justify-between gap-4">
+            <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
                 <div>
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-leaf">
                         Ringkasan hari ini
                     </p>
-                    <h1 className="mt-2 font-serif text-3xl font-medium text-forest sm:text-4xl">
+                    <h1 className="mt-2 font-serif text-2xl font-medium text-forest sm:text-3xl lg:text-4xl">
                         Halo, {name}!
                     </h1>
                     {!loading && (
-                        <p className="mt-2 text-sm text-muted">
+                        <p className="mt-1.5 text-sm text-muted">
                             {nextLevel
                                 ? `${poinLeft.toLocaleString("id-ID")} poin lagi menuju ${LEVELS[LEVELS.findIndex((l) => l.name === level.name) + 1]?.name ?? "puncak"}.`
                                 : `Selamat, kamu sudah mencapai level tertinggi!`}
@@ -220,33 +220,35 @@ export default function OverviewView({ name, onScan }: { name: string; onScan: (
             {/* Hero + Journey */}
             <div className="grid gap-5 lg:grid-cols-3">
                 {/* Hero banner */}
-                <section className="grid overflow-hidden rounded-xl bg-mint md:grid-cols-[1.1fr_1fr] lg:col-span-2">
-                    <div className="p-7 sm:p-8">
-                        <p className="font-serif italic text-leaf">Dream It. Build It. Change It.</p>
-                        <h2 className="mt-3 font-serif text-3xl font-medium leading-tight text-forest">
-                            Foto sampahmu, lalu cari tahu bisa jadi apa
-                        </h2>
-                        <p className="mt-3 text-sm leading-relaxed text-ink/75">
-                            Upload foto, lihat jenis dan skor daur ulangnya, lalu pilih ide yang mau kamu buat.
-                        </p>
-                        <button
-                            type="button"
-                            onClick={onScan}
-                            className="mt-6 flex items-center gap-2 rounded-xl bg-forest px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
-                        >
-                            <ScanLine className="size-4" aria-hidden />
-                            Scan sampah
-                        </button>
-                    </div>
-                    <div className="relative min-h-56">
-                        <Image
-                            src="/landing.jpg"
-                            alt=""
-                            fill
-                            sizes="(min-width: 768px) 280px, 100vw"
-                            className="object-cover"
-                            priority
-                        />
+                <section className="overflow-hidden rounded-xl bg-mint lg:col-span-2">
+                    <div className="grid sm:grid-cols-[1.1fr_1fr]">
+                        <div className="p-6 sm:p-8">
+                            <p className="font-serif italic text-leaf">Dream It. Build It. Change It.</p>
+                            <h2 className="mt-3 font-serif text-2xl font-medium leading-tight text-forest sm:text-3xl">
+                                Foto sampahmu, lalu cari tahu bisa jadi apa
+                            </h2>
+                            <p className="mt-3 text-sm leading-relaxed text-ink/75">
+                                Upload foto, lihat jenis dan skor daur ulangnya, lalu pilih ide yang mau kamu buat.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={onScan}
+                                className="mt-5 flex items-center gap-2 rounded-xl bg-forest px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
+                            >
+                                <ScanLine className="size-4" aria-hidden />
+                                Scan sampah
+                            </button>
+                        </div>
+                        <div className="relative h-48 sm:min-h-full">
+                            <Image
+                                src="/landing.jpg"
+                                alt=""
+                                fill
+                                sizes="(min-width: 640px) 280px, 100vw"
+                                className="object-cover"
+                                priority
+                            />
+                        </div>
                     </div>
                 </section>
 
@@ -322,7 +324,7 @@ export default function OverviewView({ name, onScan }: { name: string; onScan: (
             </div>
 
             {/* Stat cards */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {loading
                     ? [0, 1, 2].map((i) => <StatCardSkeleton key={i} />)
                     : stats.map(({ label, value, Icon, tone }) => (

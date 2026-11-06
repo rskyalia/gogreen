@@ -57,6 +57,15 @@ s
   @apply border-danger focus:ring-danger/30 focus:border-danger;
 }
 
+/* Sembunyikan scrollbar (untuk bottom nav mobile) */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* Animasi slide-up untuk Toast */
 @keyframes slide-up {
   from {

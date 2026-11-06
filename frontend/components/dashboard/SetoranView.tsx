@@ -194,7 +194,7 @@ export default function SetoranView({
 
             <form onSubmit={submit} className="grid gap-6 lg:grid-cols-2">
                 <section>
-                    <div className="relative grid aspect-[4/3] place-items-center overflow-hidden rounded-xl border-2 border-dashed border-forest/30 bg-white">
+                    <div className="relative grid aspect-[4/3] place-items-center overflow-hidden rounded-xl border-2 border-dashed border-forest/30 bg-white sm:aspect-[4/3]">
                         {preview ? (
                             <Image src={preview} alt="Foto karya yang dipilih" fill unoptimized className="object-contain p-3" />
                         ) : (

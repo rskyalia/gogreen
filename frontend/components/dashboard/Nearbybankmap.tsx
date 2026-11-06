@@ -9,7 +9,8 @@ export default function NearbyBankMap() {
         Sampah yang tidak bisa diolah sendiri bisa disetor ke sini.
       </p>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[320px_1fr]">
+      <div className="mt-5 grid gap-4 lg:grid-cols-[300px_1fr]">
+        {/* Info card */}
         <div className="self-start rounded-2xl border border-line bg-white p-5">
           <div className="flex items-start gap-3">
             <MapPin className="size-5 shrink-0 text-leaf" aria-hidden />
@@ -30,14 +31,15 @@ export default function NearbyBankMap() {
             href={MAPS_SHARE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-forest px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-forest px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
           >
             Buka di Google Maps
             <ExternalLink className="size-4" aria-hidden />
           </a>
         </div>
 
-        <div className="h-[320px] overflow-hidden rounded-xl border border-line bg-mist sm:h-[380px]">
+        {/* Iframe map */}
+        <div className="h-56 overflow-hidden rounded-xl border border-line bg-mist sm:h-72 lg:h-[320px]">
           <iframe
             title="Lokasi bank sampah"
             src={EMBED_MAP_URL}

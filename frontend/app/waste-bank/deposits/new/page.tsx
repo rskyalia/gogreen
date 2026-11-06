@@ -678,11 +678,16 @@ export default function NewDepositPage() {
     const [result, setResult]     = useState<SubmitResult | null>(null);
 
     // client_request_id dibuat sekali per percobaan setoran
-    const clientIdRef = useRef<string>(genUuid());
+    // Inisialisasi kosong dulu agar tidak dipanggil saat prerender,
+    // lalu diisi di useEffect (client-only).
+    const clientIdRef = useRef<string>('');
 
     // ── Load kategori bank ────────────────────────────────────────────
 
     useEffect(() => {
+        // Buat clientId pertama kali di client (setelah hydration)
+        if (!clientIdRef.current) clientIdRef.current = genUuid();
+
         api.get<{ data: Category[] }>('/waste-bank/deposit-categories')
             .then((r) => setCategories(r.data))
             .catch(() => {});

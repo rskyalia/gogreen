@@ -1,351 +1,235 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import {
-  Clock,
-  CheckCircle2,
-  XCircle,
-  PackagePlus,
-  Calendar,
-  Sparkles,
-  ArrowUpRight,
-  Recycle,
-  Trash2,
-  ShieldCheck,
-  ChevronRight,
-  Check,
-  X,
-  Loader2,
   AlertCircle,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Loader2,
+  PackagePlus,
+  Recycle,
   RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  X,
+  XCircle,
 } from "lucide-react";
 import { useCommunityDashboard } from "@/lib/useCommunityDashboard";
 import { reviewSubmission } from "@/lib/communityApi";
 import { timeAgo } from "@/lib/timeAgo";
 
-// Helper sinkronisasi tanggal aman dari SSR & Cascading Render
-const subscribe = () => () => { };
-const getClientSnapshot = () =>
-  new Intl.DateTimeFormat("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date());
-const getServerSnapshot = () => "";
+// ── Tanggal client-safe ────────────────────────────────────────────────────
 
-export default function DIYCommunityDashboardPage() {
-  const currentDate = useSyncExternalStore(
-    subscribe,
-    getClientSnapshot,
-    getServerSnapshot,
+const subscribe        = () => () => {};
+const getClientDate    = () => new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
+const getServerDate    = () => "";
+
+// ── Sub-components ─────────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  chipClass,
+  valueClass,
+  loading,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  icon: React.ElementType;
+  chipClass: string;
+  valueClass: string;
+  loading: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-line bg-white p-4 sm:p-5">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted">{label}</p>
+        <p className={`mt-1 font-serif text-2xl font-bold ${valueClass}`}>
+          {loading
+            ? <span className="inline-block h-7 w-16 animate-pulse rounded-lg bg-mist" />
+            : value
+          }
+        </p>
+        <p className={`mt-1 flex items-center gap-1 text-[10px] font-semibold ${valueClass}`}>
+          <Icon className="size-3" aria-hidden />
+          {sub}
+        </p>
+      </div>
+      <span className={`shrink-0 rounded-xl p-2.5 sm:p-3 ${chipClass}`}>
+        <Icon className="size-5 sm:size-6" aria-hidden />
+      </span>
+    </div>
   );
+}
 
+// ── Page ───────────────────────────────────────────────────────────────────
+
+export default function CommunityDashboardPage() {
+  const currentDate = useSyncExternalStore(subscribe, getClientDate, getServerDate);
   const { data, loading, error, refresh } = useCommunityDashboard(15_000);
-
-  // State loading per-baris tombol kurasi agar tidak ada double-click
   const [actionLoading, setActionLoading] = useState<Record<number, boolean>>({});
 
-  const handleAction = async (id: number, newStatus: "approved" | "rejected") => {
+  const handleAction = async (id: number, status: "approved" | "rejected") => {
     setActionLoading((prev) => ({ ...prev, [id]: true }));
     try {
-      await reviewSubmission(id, newStatus);
-      // Refresh data dari server agar count & list langsung sinkron
+      await reviewSubmission(id, status);
       await refresh();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Gagal mengkurasi karya.";
-      alert(message);
+      alert(err instanceof Error ? err.message : "Gagal mengkurasi karya.");
     } finally {
       setActionLoading((prev) => ({ ...prev, [id]: false }));
     }
   };
 
-  // Ambil nilai dari data API
-  const stats = data?.stats ?? {
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    open_material_requests: 0,
-  };
+  const stats       = data?.stats ?? { pending: 0, approved: 0, rejected: 0, open_material_requests: 0 };
   const submissions = data?.submissions ?? [];
 
   return (
-    <div className="space-y-6 sm:space-y-8 font-sans text-[#1d3b2f]">
-      {/* Header Salam & Tanggal Dinamis */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+    <div className="space-y-6">
+
+      {/* ── Header ── */}
+      <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
-          <span className="text-[10px] sm:text-[11px] font-bold text-[#1f8a5b] tracking-widest uppercase flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5" /> DASHBOARD KOMUNITAS DIY
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1d3b2f] mt-0.5">
-            Halo,{" "}
-            {loading ? (
-              <span className="inline-block w-36 h-7 bg-[#e1f3e9] rounded-lg animate-pulse align-middle" />
-            ) : (
-              <>{data?.user .name ?? "Tim Komunitas"}! 🌿</>
-            )}
+          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-leaf">
+            <ShieldCheck className="size-3.5" aria-hidden /> Dashboard Komunitas DIY
+          </p>
+          <h1 className="mt-1 font-serif text-2xl font-medium text-forest sm:text-3xl">
+            {loading
+              ? <span className="inline-block h-7 w-40 animate-pulse rounded-lg bg-mist align-middle" />
+              : <>Halo, {data?.user?.name ?? "Tim Komunitas"}! 🌿</>
+            }
           </h1>
-          <p className="text-xs text-[#6b8279] mt-1">
-            Kelola katalog kreasi, atur skema poin, dan lakukan kurasi karya
-            daur ulang warga.
+          <p className="mt-1 text-xs text-muted">
+            Kelola katalog kreasi, atur skema poin, dan lakukan kurasi karya daur ulang warga.
           </p>
         </div>
 
-        {/* Indikator Tanggal Real-time */}
-        <div className="inline-flex items-center gap-2 bg-white px-3.5 py-2 rounded-xl border border-[#d7e6dd] text-xs font-medium text-[#1d3b2f] shadow-2xs self-start sm:self-auto">
-          <Calendar className="w-4 h-4 text-[#1f8a5b]" />
-          <span className="capitalize">
-            {currentDate || "Memuat tanggal..."}
-          </span>
+        <div className="flex w-full items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-xs text-ink/75 sm:w-auto">
+          <CalendarDays className="size-4 shrink-0 text-forest" aria-hidden />
+          <span className="capitalize">{currentDate || "Memuat tanggal…"}</span>
         </div>
-      </div>
+      </header>
 
-      {/* Banner Ringkasan Tugas */}
-      <div className="bg-[#cfeedd] rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-[#d7e6dd] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sm:gap-6">
-        <div className="space-y-2 max-w-xl">
-          <span className="text-[10px] font-bold tracking-widest text-[#0b4d36] uppercase flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5" /> PUSAT KURASI & EDUKASI DAUR
-            ULANG
-          </span>
-          <h2 className="text-xl sm:text-2xl font-serif font-extrabold text-[#1d3b2f] leading-snug">
-            {loading ? (
-              <span className="inline-block w-64 h-7 bg-[#b2d9c5] rounded-lg animate-pulse" />
-            ) : (
-              <>Ada {stats.pending} karya warga yang butuh validasimu hari ini!</>
-            )}
+      {/* ── Hero banner ── */}
+      <section className="flex flex-col gap-4 rounded-2xl bg-mint p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="space-y-2">
+          <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-forest">
+            <Sparkles className="size-3.5" aria-hidden /> Pusat Kurasi &amp; Edukasi Daur Ulang
+          </p>
+          <h2 className="font-serif text-xl font-medium leading-snug text-forest sm:text-2xl">
+            {loading
+              ? <span className="inline-block h-7 w-56 animate-pulse rounded-lg bg-forest/10" />
+              : <>Ada {stats.pending} karya warga yang butuh validasimu hari ini!</>
+            }
           </h2>
-          <p className="text-xs text-[#1d3b2f]/80 leading-relaxed">
-            Pastikan setiap bukti karya yang diunggah sesuai dengan panduan agar
-            poin terdistribusi secara tepat.
+          <p className="max-w-md text-xs leading-relaxed text-ink/80">
+            Pastikan setiap bukti karya yang diunggah sesuai panduan agar poin terdistribusi secara tepat.
           </p>
         </div>
-
-        <a
+        <Link
           href="/community/submissions"
-          className="bg-[#0b4d36] hover:bg-[#0a3f2d] text-white text-xs font-bold px-5 py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-[#0b4d36]/10 shrink-0 w-full sm:w-auto"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep sm:w-auto sm:shrink-0"
         >
-          <span>Mulai Kurasi Karya</span>
-          <ChevronRight className="w-4 h-4" />
-        </a>
-      </div>
+          Mulai Kurasi
+          <ChevronRight className="size-4" aria-hidden />
+        </Link>
+      </section>
 
-      {/* Error State */}
+      {/* ── Error ── */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 text-red-700">
-            <AlertCircle className="w-5 h-5 shrink-0" />
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-danger-soft bg-danger-soft px-4 py-3">
+          <div className="flex items-center gap-3 text-danger">
+            <AlertCircle className="size-5 shrink-0" aria-hidden />
             <p className="text-xs font-semibold">{error}</p>
           </div>
-          <button
-            type="button"
-            onClick={refresh}
-            className="shrink-0 flex items-center gap-1.5 text-xs font-bold text-red-700 hover:text-red-900 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Coba Lagi
+          <button type="button" onClick={refresh} className="flex shrink-0 items-center gap-1.5 text-xs font-bold text-danger transition-colors hover:opacity-75">
+            <RefreshCw className="size-4" aria-hidden /> Coba Lagi
           </button>
         </div>
       )}
 
-      {/* Grid Stat Status (Pending, Approved, Rejected, Request Bahan) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-[#d7e6dd] flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#6b8279]">
-              Menunggu Validasi
-            </p>
-            <h3 className="text-xl sm:text-2xl font-bold text-[#8a5a00] mt-1">
-              {loading ? (
-                <span className="inline-block w-16 h-7 bg-[#fdecc4] rounded-lg animate-pulse" />
-              ) : (
-                <>{stats.pending} Karya</>
-              )}
-            </h3>
-            <p className="text-[10px] text-[#8a5a00] mt-1 font-semibold flex items-center gap-1">
-              <Clock className="w-3 h-3" /> Status: Pending
-            </p>
-          </div>
-          <div className="p-2.5 sm:p-3 bg-[#fdecc4] rounded-xl text-[#8a5a00] shrink-0">
-            <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-[#d7e6dd] flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#6b8279]">
-              Karya Disetujui
-            </p>
-            <h3 className="text-xl sm:text-2xl font-bold text-[#0b4d36] mt-1">
-              {loading ? (
-                <span className="inline-block w-16 h-7 bg-[#cfeedd] rounded-lg animate-pulse" />
-              ) : (
-                <>{stats.approved} Karya</>
-              )}
-            </h3>
-            <p className="text-[10px] text-[#1f8a5b] mt-1 font-semibold flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Status: Accepted
-            </p>
-          </div>
-          <div className="p-2.5 sm:p-3 bg-[#cfeedd] rounded-xl text-[#0b4d36] shrink-0">
-            <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-[#d7e6dd] flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#6b8279]">
-              Karya Ditolak
-            </p>
-            <h3 className="text-xl sm:text-2xl font-bold text-red-600 mt-1">
-              {loading ? (
-                <span className="inline-block w-16 h-7 bg-red-50 rounded-lg animate-pulse" />
-              ) : (
-                <>{stats.rejected} Karya</>
-              )}
-            </h3>
-            <p className="text-[10px] text-red-600 mt-1 font-semibold flex items-center gap-1">
-              <XCircle className="w-3 h-3" /> Status: Rejected
-            </p>
-          </div>
-          <div className="p-2.5 sm:p-3 bg-red-50 rounded-xl text-red-600 shrink-0">
-            <XCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-[#d7e6dd] flex items-center justify-between shadow-2xs">
-          <div>
-            <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#6b8279]">
-              Request Bahan
-            </p>
-            <h3 className="text-xl sm:text-2xl font-bold text-[#0b4d36] mt-1">
-              {loading ? (
-                <span className="inline-block w-24 h-7 bg-[#e1f3e9] rounded-lg animate-pulse" />
-              ) : (
-                <>{stats.open_material_requests} Permintaan</>
-              )}
-            </h3>
-            <p className="text-[10px] text-[#1f8a5b] mt-1 font-semibold flex items-center gap-1">
-              <PackagePlus className="w-3 h-3" /> Bahan Daur Ulang
-            </p>
-          </div>
-          <div className="p-2.5 sm:p-3 bg-[#e1f3e9] rounded-xl text-[#0b4d36] shrink-0">
-            <PackagePlus className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-        </div>
+      {/* ── Stat cards ── */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
+        <StatCard label="Menunggu Validasi" value={`${stats.pending} Karya`}   sub="Status: Pending"  icon={Clock}         chipClass="bg-sun text-sun-ink"    valueClass="text-sun-ink"  loading={loading} />
+        <StatCard label="Karya Disetujui"   value={`${stats.approved} Karya`}  sub="Status: Accepted" icon={CheckCircle2}  chipClass="bg-mint text-forest"   valueClass="text-forest"   loading={loading} />
+        <StatCard label="Karya Ditolak"     value={`${stats.rejected} Karya`}  sub="Status: Rejected" icon={XCircle}       chipClass="bg-danger-soft text-danger" valueClass="text-danger" loading={loading} />
+        <StatCard label="Request Bahan"     value={`${stats.open_material_requests} Permintaan`} sub="Bahan Daur Ulang" icon={PackagePlus} chipClass="bg-mist text-leaf" valueClass="text-forest" loading={loading} />
       </div>
 
-      {/* Skema Poin & Kategori */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-[#d7e6dd] space-y-4 shadow-2xs">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-[#d7e6dd] pb-3 sm:pb-4">
+      {/* ── Skema poin ── */}
+      <section className="rounded-2xl border border-line bg-white p-5 sm:p-6">
+        <div className="flex flex-col gap-2 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-base sm:text-lg font-serif font-bold text-[#1d3b2f]">
-              Skema Standar Poin Daur Ulang Komunitas
-            </h3>
-            <p className="text-xs text-[#6b8279]">
-              Penentuan alokasi poin yang akan diterima pengguna berdasarkan
-              tindakan daur ulang.
-            </p>
+            <h2 className="font-serif text-base font-medium text-forest sm:text-lg">Skema Standar Poin Daur Ulang</h2>
+            <p className="mt-0.5 text-xs text-muted">Alokasi poin berdasarkan tindakan daur ulang pengguna.</p>
           </div>
-          <span className="text-[10px] sm:text-[11px] bg-[#cfeedd] text-[#0b4d36] font-bold px-3 py-1 rounded-full border border-[#d7e6dd] shrink-0">
+          <span className="w-fit rounded-full border border-line bg-mint px-3 py-1 text-[10px] font-bold text-forest">
             Poin Otomatis Aktif
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-          <div className="p-4 rounded-xl border border-[#d7e6dd] bg-[#f5faf7] space-y-2">
-            <div className="flex items-center gap-2 text-[#0b4d36] font-bold text-xs">
-              <Sparkles className="w-4 h-4 text-[#1f8a5b] shrink-0" />
-              <span>Dibuat Karya DIY (Accepted)</span>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          {[
+            { icon: Sparkles, label: "Karya DIY (Accepted)", desc: "User mengunggah bukti kreasi yang valid sesuai tutorial.", value: "+50 s/d +150", unit: "Poin / Karya", color: "text-forest" },
+            { icon: Recycle,  label: "Pemilahan Sampah",     desc: "Sampah dipilah dan disetor tanpa membuat karya kreasi.",   value: "+10 s/d +20",  unit: "Poin / Kg",   color: "text-leaf"   },
+            { icon: Trash2,   label: "Rejected / Tidak Valid", desc: "Foto buram, karya tidak sesuai tutorial, atau sampah dibuang sembarangan.", value: "0", unit: "Poin", color: "text-muted" },
+          ].map(({ icon: Icon, label, desc, value, unit, color }) => (
+            <div key={label} className="space-y-2 rounded-xl border border-line bg-paper p-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-ink">
+                <Icon className="size-4 text-leaf shrink-0" aria-hidden />
+                {label}
+              </div>
+              <p className="text-[11px] leading-relaxed text-muted">{desc}</p>
+              <p className={`font-serif text-lg font-bold ${color}`}>
+                {value} <span className="font-sans text-xs font-normal text-muted">{unit}</span>
+              </p>
             </div>
-            <p className="text-[11px] text-[#6b8279]">
-              User mengunggah bukti kreasi karya daur ulang yang valid sesuai
-              tutorial.
-            </p>
-            <div className="pt-2 text-base sm:text-lg font-serif font-extrabold text-[#0b4d36]">
-              +50 s/d +150{" "}
-              <span className="text-xs font-sans font-normal text-[#6b8279]">
-                Poin / Karya
-              </span>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-[#d7e6dd] bg-[#f5faf7] space-y-2">
-            <div className="flex items-center gap-2 text-[#0b4d36] font-bold text-xs">
-              <Recycle className="w-4 h-4 text-[#1f8a5b] shrink-0" />
-              <span>Pemilahan Sampah (Tanpa Karya)</span>
-            </div>
-            <p className="text-[11px] text-[#6b8279]">
-              Sampah dipilah berdasarkan kategori dan disetor tanpa dibuat karya
-              kreasi.
-            </p>
-            <div className="pt-2 text-base sm:text-lg font-serif font-extrabold text-[#1f8a5b]">
-              +10 s/d +20{" "}
-              <span className="text-xs font-sans font-normal text-[#6b8279]">
-                Poin / Kg
-              </span>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-[#d7e6dd] bg-[#f5faf7] space-y-2">
-            <div className="flex items-center gap-2 text-[#6b8279] font-bold text-xs">
-              <Trash2 className="w-4 h-4 text-red-500 shrink-0" />
-              <span>Dibuang / Tidak Valid (Rejected)</span>
-            </div>
-            <p className="text-[11px] text-[#6b8279]">
-              Foto buram, karya tidak sesuai tutorial, atau sampah dibuang
-              sembarangan.
-            </p>
-            <div className="pt-2 text-base sm:text-lg font-serif font-extrabold text-[#6b8279]">
-              0{" "}
-              <span className="text-xs font-sans font-normal text-[#6b8279]">
-                Poin
-              </span>
-            </div>
-          </div>
+          ))}
         </div>
-      </div>
+      </section>
 
-      {/* Tabel Kurasi Cepat */}
-      <div className="bg-white rounded-2xl border border-[#d7e6dd] overflow-hidden shadow-2xs">
-        <div className="p-4 sm:p-5 border-b border-[#d7e6dd] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
+      {/* ── Tabel kurasi ── */}
+      <section className="overflow-hidden rounded-2xl border border-line bg-white">
+        <div className="flex flex-col gap-2 border-b border-line p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
-            <h3 className="text-base sm:text-lg font-serif font-bold text-[#1d3b2f]">
-              Kurasi Karya Terbaru
-            </h3>
-            <p className="text-xs text-[#6b8279]">
-              Setujui atau tolak pengajuan karya warga secara langsung.
-            </p>
+            <h2 className="font-serif text-base font-medium text-forest sm:text-lg">Kurasi Karya Terbaru</h2>
+            <p className="text-xs text-muted">Setujui atau tolak pengajuan karya warga secara langsung.</p>
           </div>
-          <a
-            href="/community/submissions"
-            className="text-xs font-bold text-[#1f8a5b] hover:underline flex items-center gap-1 self-start sm:self-auto"
-          >
-            Lihat Semua Submissions <ArrowUpRight className="w-4 h-4" />
-          </a>
+          <Link href="/community/submissions" className="flex items-center gap-1 text-xs font-bold text-leaf hover:underline self-start sm:self-auto">
+            Lihat Semua <ChevronRight className="size-4" aria-hidden />
+          </Link>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[660px] text-left text-xs text-[#1d3b2f]">
-            <thead className="bg-[#f5faf7] text-[#6b8279] font-bold uppercase tracking-wider border-b border-[#d7e6dd]">
+          <table className="w-full min-w-[600px] text-left text-xs text-ink">
+            <thead className="border-b border-line bg-paper text-[10px] font-bold uppercase tracking-wider text-muted">
               <tr>
-                <th className="px-4 sm:px-6 py-3.5">Nama User</th>
-                <th className="px-4 sm:px-6 py-3.5">Panduan DIY</th>
-                <th className="px-4 sm:px-6 py-3.5">Kategori</th>
-                <th className="px-4 sm:px-6 py-3.5">Est. Poin</th>
-                <th className="px-4 sm:px-6 py-3.5">Dikirim</th>
-                <th className="px-4 sm:px-6 py-3.5">Status</th>
-                <th className="px-4 sm:px-6 py-3.5 text-right">Aksi Kurasi</th>
+                <th className="px-4 py-3 sm:px-5">Nama User</th>
+                <th className="px-4 py-3 sm:px-5">Panduan DIY</th>
+                <th className="px-4 py-3 sm:px-5">Kategori</th>
+                <th className="px-4 py-3 sm:px-5">Poin</th>
+                <th className="px-4 py-3 sm:px-5">Dikirim</th>
+                <th className="px-4 py-3 sm:px-5">Status</th>
+                <th className="px-4 py-3 sm:px-5 text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#d7e6dd]">
+            <tbody className="divide-y divide-line">
+
               {/* Loading skeleton */}
               {loading && submissions.length === 0 &&
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i}>
                     {Array.from({ length: 7 }).map((_, j) => (
-                      <td key={j} className="px-4 sm:px-6 py-4">
-                        <span className="inline-block w-full h-4 bg-[#f0f7f3] rounded-md animate-pulse" />
+                      <td key={j} className="px-4 py-4 sm:px-5">
+                        <span className="inline-block h-4 w-full animate-pulse rounded-md bg-mist" />
                       </td>
                     ))}
                   </tr>
@@ -355,7 +239,7 @@ export default function DIYCommunityDashboardPage() {
               {/* Empty state */}
               {!loading && submissions.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-[#6b8279]">
+                  <td colSpan={7} className="px-5 py-12 text-center text-sm text-muted">
                     Tidak ada karya yang perlu dikurasi saat ini.
                   </td>
                 </tr>
@@ -363,80 +247,61 @@ export default function DIYCommunityDashboardPage() {
 
               {/* Data rows */}
               {submissions.map((item) => {
-                const isActing = !!actionLoading[item.id];
+                const acting = !!actionLoading[item.id];
                 return (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-[#f5faf7]/60 transition-all"
-                  >
-                    <td className="px-4 sm:px-6 py-4 font-bold text-[#1d3b2f]">
-                      {item.user}
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 font-medium max-w-[180px]">
+                  <tr key={item.id} className="transition-colors hover:bg-paper/60">
+                    <td className="px-4 py-3.5 font-semibold sm:px-5">{item.user}</td>
+                    <td className="px-4 py-3.5 sm:px-5 max-w-[160px]">
                       <span className="line-clamp-2">{item.guide}</span>
                     </td>
-                    <td className="px-4 sm:px-6 py-4">
-                      <span className="bg-[#e1f3e9] text-[#0b4d36] font-semibold text-[10px] px-2.5 py-1 rounded-md">
+                    <td className="px-4 py-3.5 sm:px-5">
+                      <span className="rounded-md bg-mist px-2.5 py-1 text-[10px] font-semibold text-forest">
                         {item.category}
                       </span>
                     </td>
-                    <td className="px-4 sm:px-6 py-4 font-bold text-[#1f8a5b]">
-                      +{item.points} Pts
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 text-[#6b8279]">
-                      {timeAgo(item.created_at)}
-                    </td>
-                    <td className="px-4 sm:px-6 py-4">
+                    <td className="px-4 py-3.5 font-semibold text-leaf sm:px-5">+{item.points}</td>
+                    <td className="px-4 py-3.5 text-muted sm:px-5">{timeAgo(item.created_at)}</td>
+                    <td className="px-4 py-3.5 sm:px-5">
                       {item.status === "pending" && (
-                        <span className="bg-[#fdecc4] text-[#8a5a00] font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> Pending
+                        <span className="inline-flex items-center gap-1 rounded-full bg-sun px-2.5 py-0.5 text-[10px] font-bold text-sun-ink">
+                          <Clock className="size-3" aria-hidden /> Pending
                         </span>
                       )}
                       {item.status === "approved" && (
-                        <span className="bg-[#cfeedd] text-[#0b4d36] font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Accepted
+                        <span className="inline-flex items-center gap-1 rounded-full bg-mint px-2.5 py-0.5 text-[10px] font-bold text-forest">
+                          <CheckCircle2 className="size-3" aria-hidden /> Disetujui
                         </span>
                       )}
                       {item.status === "rejected" && (
-                        <span className="bg-red-100 text-red-700 font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
-                          <XCircle className="w-3 h-3" /> Rejected
+                        <span className="inline-flex items-center gap-1 rounded-full bg-danger-soft px-2.5 py-0.5 text-[10px] font-bold text-danger">
+                          <XCircle className="size-3" aria-hidden /> Ditolak
                         </span>
                       )}
                     </td>
-                    <td className="px-4 sm:px-6 py-4 text-right">
+                    <td className="px-4 py-3.5 text-right sm:px-5">
                       {item.status === "pending" ? (
-                        <div className="flex items-center justify-end gap-1.5 sm:gap-2">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            disabled={isActing}
+                            disabled={acting}
                             onClick={() => handleAction(item.id, "approved")}
-                            className="bg-[#0b4d36] hover:bg-[#0a3f2d] disabled:opacity-60 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed transition-all shrink-0"
+                            className="flex items-center gap-1 rounded-lg bg-forest px-2.5 py-1.5 text-[10px] font-bold text-white transition-colors hover:bg-forest-deep disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {isActing ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Check className="w-3.5 h-3.5" />
-                            )}
+                            {acting ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
                             Approve
                           </button>
                           <button
                             type="button"
-                            disabled={isActing}
+                            disabled={acting}
                             onClick={() => handleAction(item.id, "rejected")}
-                            className="bg-red-50 hover:bg-red-100 disabled:opacity-60 text-red-600 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border border-red-200 cursor-pointer disabled:cursor-not-allowed transition-all shrink-0"
+                            className="flex items-center gap-1 rounded-lg border border-danger-soft bg-danger-soft px-2.5 py-1.5 text-[10px] font-bold text-danger transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {isActing ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <X className="w-3.5 h-3.5" />
-                            )}
+                            {acting ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />}
                             Reject
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[10px] text-[#6b8279] italic">
-                          Selesai dikurasi
-                        </span>
+                        <span className="text-[10px] italic text-muted">Selesai</span>
                       )}
                     </td>
                   </tr>
@@ -445,7 +310,8 @@ export default function DIYCommunityDashboardPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
+
     </div>
   );
 }

@@ -140,18 +140,18 @@ export default function EditProfileView({ onBack }: EditProfileViewProps) {
                     </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-3">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
                     <button
                         type="button"
                         onClick={onBack}
-                        className="rounded-xl border border-line bg-white px-5 py-2.5 text-sm font-semibold text-ink hover:bg-mist transition-colors"
+                        className="w-full rounded-xl border border-line bg-white px-5 py-2.5 text-sm font-semibold text-ink hover:bg-mist transition-colors sm:w-auto"
                     >
                         Batal
                     </button>
                     <button
                         type="submit"
                         disabled={isSaving}
-                        className="flex items-center gap-2 rounded-xl bg-forest px-6 py-2.5 text-sm font-semibold text-white hover:bg-forest/90 disabled:opacity-50 transition-colors"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest px-6 py-2.5 text-sm font-semibold text-white hover:bg-forest/90 disabled:opacity-50 transition-colors sm:w-auto"
                     >
                         <Save className="size-4" />
                         {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
