@@ -67,9 +67,9 @@ export default function SetoranView({
     const [sent, setSent] = useState(false);
 
     useEffect(() => {
-        fetchTutorials()
-            .then((list) => {
-                setGuides(list);
+        fetchTutorials({ per_page: 50 })
+            .then((res) => {
+                setGuides(res.tutorials);
                 setGuidesState("ready");
             })
             .catch(() => setGuidesState("error"));

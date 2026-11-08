@@ -10,7 +10,10 @@ use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WasteBankController as AdminWasteBankController;
 use App\Http\Controllers\Api\AiCraftRecommendationController;
+use App\Http\Controllers\Api\PublicDiyGuideController;
+use App\Http\Controllers\Api\PublicWasteCategoryController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Community\DashboardController;
 use App\Http\Controllers\User\DiySubmissionController;
 use App\Http\Controllers\User\MemberCardController;
 use App\Http\Controllers\User\NotificationController;
@@ -18,6 +21,7 @@ use App\Http\Controllers\User\PointLedgerController;
 use App\Http\Controllers\User\SummaryController;
 use App\Http\Controllers\User\UserDepositController;
 use App\Http\Controllers\User\WasteBankSearchController;
+use App\Http\Controllers\Community\DashboardController;
 use App\Http\Controllers\WasteBank\DepositController;
 use App\Http\Controllers\WasteBank\MaterialRequestController;
 use App\Http\Controllers\WasteBank\ProfileController;
@@ -41,6 +45,12 @@ Route::get('waste-banks', function () {
         'data' => WasteBank::verified()->select('id', 'name', 'address')->orderBy('name')->get(),
     ]);
 });
+
+Route::get('waste-categories', [PublicWasteCategoryController::class, 'index']);
+
+// Panduan DIY publik — hanya yang sudah dipublikasikan
+Route::get('diy-guides', [PublicDiyGuideController::class, 'index']);
+Route::get('diy-guides/{id}', [PublicDiyGuideController::class, 'show']);
 
 // ── Auth privat ───────────────────────────────────────────────────────────
 
