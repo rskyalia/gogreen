@@ -11,6 +11,8 @@ class MaterialRequestResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'permintaan_bahan' => $this->permintaan_bahan ?? $this->notes ?? 'Permintaan bahan daur ulang',
+            'title' => $this->permintaan_bahan ?? $this->notes ?? 'Permintaan bahan daur ulang',
             'waste_category' => new WasteCategoryResource($this->whenLoaded('wasteCategory')),
             'quantity_needed_kg' => (float) $this->quantity_needed_kg,
             'notes' => $this->notes,

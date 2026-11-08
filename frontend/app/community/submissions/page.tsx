@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   CheckSquare, 
   Search, 
@@ -11,128 +11,199 @@ import {
   Check, 
   X, 
   AlertCircle, 
-  FileText 
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
+import { api, firstError } from '@/lib/api';
 
-interface Submission {
+// ── Types dari API Backend ────────────────────────────────────────────────────
+
+interface ApiUser {
   id: number;
-  userName: string;
-  userAvatar: string;
-  guideTitle: string;
-  category: string;
-  submittedAt: string;
-  status: 'pending' | 'approved' | 'rejected';
-  points: number;
-  proofImage: string;
-  userNote: string;
-  rejectionReason?: string;
+  name: string;
+  email: string;
 }
+
+interface ApiWasteCategory {
+  id: number;
+  name: string;
+}
+
+interface ApiDiyGuide {
+  id: number;
+  title: string;
+  reward_points: number;
+  waste_category?: ApiWasteCategory;
+}
+
+interface ApiSubmission {
+  id: number;
+  user: ApiUser;
+  diy_guide: ApiDiyGuide;
+  proof_image: string;
+  status: 'pending' | 'approved' | 'rejected';
+  review_note: string | null;
+  points_awarded: number;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewer?: ApiUser | null;
+  // relasi snake_case dari Laravel eager load
+  diyGuide?: ApiDiyGuide;
+}
+
+interface ApiPaginatedResponse {
+  data: ApiSubmission[];
+  meta: {
+    current_page: number;
+    last_page: number;
+    total: number;
+    per_page: number;
+  };
+}
+
+// ── Helper: format tanggal ISO → "12 Okt 2026, 14:20 WIB" ───────────────────
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '-';
+  try {
+    return new Date(iso).toLocaleString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Jakarta',
+    }) + ' WIB';
+  } catch {
+    return iso;
+  }
+}
+
+// ── Helper: inisial nama ─────────────────────────────────────────────────────
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map(w => w[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
+// ── Helper: resolve relasi diy_guide (bisa 'diy_guide' atau 'diyGuide') ──────
+
+function getGuide(s: ApiSubmission): ApiDiyGuide | null {
+  return s.diy_guide ?? s.diyGuide ?? null;
+}
+
+// ── Main Component ───────────────────────────────────────────────────────────
 
 export default function SubmissionsValidationPage() {
   const [selectedTab, setSelectedTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<ApiSubmission | null>(null);
   const [rejectReasonInput, setRejectReasonInput] = useState('');
   const [isRejecting, setIsRejecting] = useState(false);
 
-  // Mock Data Pengajuan Karya dari User
-  const [submissions, setSubmissions] = useState<Submission[]>([
-    {
-      id: 1,
-      userName: 'Budi Santoso',
-      userAvatar: 'BS',
-      guideTitle: 'Pot Bunga Estetik dari Botol Plastik Bekas',
-      category: 'Plastik',
-      submittedAt: '12 Okt 2026, 14:20 WIB',
-      status: 'pending',
-      points: 50,
-      proofImage: 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&q=80&w=600',
-      userNote: 'Saya membuat pot tanaman ini menggunakan botol bekas minuman soda 1.5L dan dicat warna putih hijau.'
-    },
-    {
-      id: 2,
-      userName: 'Siti Aminah',
-      userAvatar: 'SA',
-      guideTitle: 'Totebag Ramah Lingkungan dari Pakaian Bekas',
-      category: 'Kain',
-      submittedAt: '12 Okt 2026, 11:05 WIB',
-      status: 'pending',
-      points: 75,
-      proofImage: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=600',
-      userNote: 'Totebag dari kaos bekas sesuai panduan, dijahit rapi bagian bawahnya.'
-    },
-    {
-      id: 3,
-      userName: 'Eko Prasetyo',
-      userAvatar: 'EP',
-      guideTitle: 'Tempat Pensil Meja dari Kaleng Minuman',
-      category: 'Logam',
-      submittedAt: '11 Okt 2026, 16:45 WIB',
-      status: 'approved',
-      points: 75,
-      proofImage: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=600',
-      userNote: 'Selesai melilitkan tali rami di kaleng soda bekas.'
-    },
-    {
-      id: 4,
-      userName: 'Rina Wijaya',
-      userAvatar: 'RW',
-      guideTitle: 'Kotak Penyimpanan Serbaguna dari Kardus Bekas',
-      category: 'Kertas & Kardus',
-      submittedAt: '10 Okt 2026, 09:30 WIB',
-      status: 'rejected',
-      points: 0,
-      proofImage: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&q=80&w=600',
-      userNote: 'Kardus bekas dilapisi kertas koran.',
-      rejectionReason: 'Foto bukti karya terlalu buram dan bentuk kardus belum selesai dikerjakan.'
-    }
-  ]);
+  // Data state
+  const [submissions, setSubmissions] = useState<ApiSubmission[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Handler Approve Karya
-  const handleApprove = (id: number) => {
-    setSubmissions(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, status: 'approved' } : item
-      )
-    );
-    setSelectedSubmission(null);
+  // Action loading state
+  const [isActionLoading, setIsActionLoading] = useState(false);
+
+  // ── Fetch data dari backend ─────────────────────────────────────────────
+
+  const fetchSubmissions = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
+    else setIsRefreshing(true);
+    setError(null);
+
+    try {
+      const res = await api.get<ApiPaginatedResponse>('/admin/diy-submissions?per_page=100');
+      setSubmissions(res.data);
+    } catch (err) {
+      setError(firstError(err, 'Gagal memuat data pengajuan karya.'));
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSubmissions();
+  }, [fetchSubmissions]);
+
+  // ── Auto-polling tiap 30 detik ─────────────────────────────────────────
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchSubmissions(true);
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchSubmissions]);
+
+  // ── Handler Approve ─────────────────────────────────────────────────────
+
+  const handleApprove = async (id: number) => {
+    setIsActionLoading(true);
+    try {
+      await api.patch(`/admin/diy-submissions/${id}/review`, { status: 'approved' });
+      await fetchSubmissions(true);
+      setSelectedSubmission(null);
+    } catch (err) {
+      alert(firstError(err, 'Gagal menyetujui karya.'));
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
-  // Handler Reject Karya
-  const handleReject = (id: number) => {
+  // ── Handler Reject ──────────────────────────────────────────────────────
+
+  const handleReject = async (id: number) => {
     if (!rejectReasonInput.trim()) {
       alert('Mohon masukkan alasan penolakan karya.');
       return;
     }
 
-    setSubmissions(prev =>
-      prev.map(item =>
-        item.id === id
-          ? { ...item, status: 'rejected', points: 0, rejectionReason: rejectReasonInput }
-          : item
-      )
-    );
-    setRejectReasonInput('');
-    setIsRejecting(false);
-    setSelectedSubmission(null);
+    setIsActionLoading(true);
+    try {
+      await api.patch(`/admin/diy-submissions/${id}/review`, {
+        status: 'rejected',
+        review_note: rejectReasonInput.trim(),
+      });
+      await fetchSubmissions(true);
+      setRejectReasonInput('');
+      setIsRejecting(false);
+      setSelectedSubmission(null);
+    } catch (err) {
+      alert(firstError(err, 'Gagal menolak karya.'));
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
-  // Filter Submissions
+  // ── Filter lokal ────────────────────────────────────────────────────────
+
   const filteredSubmissions = submissions.filter(item => {
+    const guide = getGuide(item);
     const matchesTab = selectedTab === 'all' || item.status === selectedTab;
     const matchesQuery =
-      item.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.guideTitle.toLowerCase().includes(searchQuery.toLowerCase());
+      item.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      guide?.title?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesQuery;
   });
 
-  const countPending = submissions.filter(s => s.status === 'pending').length;
+  const countPending  = submissions.filter(s => s.status === 'pending').length;
   const countApproved = submissions.filter(s => s.status === 'approved').length;
   const countRejected = submissions.filter(s => s.status === 'rejected').length;
 
+  // ── Render ──────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-8 font-sans text-[#1d3b2f]">
-      {/* Header Utama */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-[11px] font-bold text-[#1f8a5b] tracking-widest uppercase flex items-center gap-1.5">
@@ -145,11 +216,37 @@ export default function SubmissionsValidationPage() {
             Periksa foto bukti kreasi warga, setujui untuk mendistribusikan poin, atau berikan alasan jika karya belum memenuhi kriteria.
           </p>
         </div>
+
+        {/* Tombol Refresh Manual */}
+        <button
+          onClick={() => fetchSubmissions(true)}
+          disabled={isRefreshing}
+          className="flex items-center gap-1.5 px-3 py-2 bg-[#f5faf7] border border-[#d7e6dd] rounded-xl text-xs font-bold text-[#0b4d36] hover:bg-[#e1f3e9] transition-all cursor-pointer disabled:opacity-50 self-start sm:self-auto"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Memperbarui...' : 'Refresh'}
+        </button>
       </div>
 
-      {/* Tabs Filter Status & Bar Pencarian */}
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4 text-sm flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-bold">Gagal memuat data</p>
+            <p className="text-xs mt-0.5">{error}</p>
+            <button
+              onClick={() => fetchSubmissions()}
+              className="mt-2 text-xs underline font-bold cursor-pointer"
+            >
+              Coba lagi
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs & Search */}
       <div className="bg-white p-4 rounded-2xl border border-[#d7e6dd] flex flex-col md:flex-row justify-between items-center gap-4 shadow-2xs">
-        {/* Tab Buttons */}
         <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
           <button
             onClick={() => setSelectedTab('all')}
@@ -196,7 +293,6 @@ export default function SubmissionsValidationPage() {
           </button>
         </div>
 
-        {/* Input Pencarian */}
         <div className="relative w-full md:w-72">
           <Search className="w-4 h-4 absolute left-3.5 top-3 text-[#6b8279]" />
           <input
@@ -209,7 +305,7 @@ export default function SubmissionsValidationPage() {
         </div>
       </div>
 
-      {/* Tabel Validasi Submission */}
+      {/* Tabel */}
       <div className="bg-white rounded-2xl border border-[#d7e6dd] overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-xs text-[#1d3b2f]">
@@ -224,78 +320,99 @@ export default function SubmissionsValidationPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#d7e6dd]">
-              {filteredSubmissions.length > 0 ? (
-                filteredSubmissions.map(item => (
-                  <tr key={item.id} className="hover:bg-[#f5faf7]/60 transition-all">
-                    {/* User */}
-                    <td className="px-4 sm:px-6 py-4 font-bold">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-[#e1f3e9] text-[#0b4d36] font-bold text-xs flex items-center justify-center border border-[#d7e6dd] shrink-0">
-                          {item.userAvatar}
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-16 text-center text-[#6b8279]">
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="w-8 h-8 animate-spin text-[#1f8a5b]" />
+                      <span className="text-sm">Memuat data pengajuan karya...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredSubmissions.length > 0 ? (
+                filteredSubmissions.map(item => {
+                  const guide = getGuide(item);
+                  const categoryName = guide?.waste_category?.name ?? '-';
+                  const rewardPoints = guide?.reward_points ?? 0;
+
+                  return (
+                    <tr key={item.id} className="hover:bg-[#f5faf7]/60 transition-all">
+                      {/* User */}
+                      <td className="px-4 sm:px-6 py-4 font-bold">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-[#e1f3e9] text-[#0b4d36] font-bold text-xs flex items-center justify-center border border-[#d7e6dd] shrink-0">
+                            {getInitials(item.user?.name ?? '?')}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-[#1d3b2f]">{item.user?.name ?? '-'}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs font-bold text-[#1d3b2f]">{item.userName}</p>
+                      </td>
+
+                      {/* Tutorial Title */}
+                      <td className="px-4 sm:px-6 py-4 font-medium max-w-xs">
+                        <p className="truncate font-semibold text-[#1d3b2f]">{guide?.title ?? '-'}</p>
+                        <p className="text-[10px] text-[#6b8279] mt-0.5">{formatDate(item.created_at)}</p>
+                      </td>
+
+                      {/* Category */}
+                      <td className="px-4 sm:px-6 py-4">
+                        <span className="bg-[#e1f3e9] text-[#0b4d36] font-bold text-[10px] px-2.5 py-1 rounded-md">
+                          {categoryName}
+                        </span>
+                      </td>
+
+                      {/* Points */}
+                      <td className="px-4 sm:px-6 py-4 font-extrabold text-[#1f8a5b]">
+                        {item.status === 'approved'
+                          ? `+${item.points_awarded} Pts`
+                          : `+${rewardPoints} Pts`}
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="px-4 sm:px-6 py-4">
+                        {item.status === 'pending' && (
+                          <span className="bg-[#fdecc4] text-[#8a5a00] font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Pending
+                          </span>
+                        )}
+                        {item.status === 'approved' && (
+                          <span className="bg-[#cfeedd] text-[#0b4d36] font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Accepted
+                          </span>
+                        )}
+                        {item.status === 'rejected' && (
+                          <span className="bg-red-100 text-red-700 font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
+                            <XCircle className="w-3 h-3" /> Rejected
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Action */}
+                      <td className="px-4 sm:px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedSubmission(item);
+                              setIsRejecting(false);
+                              setRejectReasonInput('');
+                            }}
+                            className="px-3 py-1.5 bg-[#0b4d36] hover:bg-[#0a3f2d] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Tinjau</span>
+                          </button>
                         </div>
-                      </div>
-                    </td>
-
-                    {/* Tutorial Title */}
-                    <td className="px-4 sm:px-6 py-4 font-medium max-w-xs">
-                      <p className="truncate font-semibold text-[#1d3b2f]">{item.guideTitle}</p>
-                    </td>
-
-                    {/* Category */}
-                    <td className="px-4 sm:px-6 py-4">
-                      <span className="bg-[#e1f3e9] text-[#0b4d36] font-bold text-[10px] px-2.5 py-1 rounded-md">
-                        {item.category}
-                      </span>
-                    </td>
-
-                    {/* Points */}
-                    <td className="px-4 sm:px-6 py-4 font-extrabold text-[#1f8a5b]">
-                      +{item.points} Pts
-                    </td>
-
-                    {/* Status Badge */}
-                    <td className="px-4 sm:px-6 py-4">
-                      {item.status === 'pending' && (
-                        <span className="bg-[#fdecc4] text-[#8a5a00] font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> Pending
-                        </span>
-                      )}
-                      {item.status === 'approved' && (
-                        <span className="bg-[#cfeedd] text-[#0b4d36] font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Accepted
-                        </span>
-                      )}
-                      {item.status === 'rejected' && (
-                        <span className="bg-red-100 text-red-700 font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
-                          <XCircle className="w-3 h-3" /> Rejected
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Action Buttons */}
-                    <td className="px-4 sm:px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedSubmission(item);
-                            setIsRejecting(false);
-                          }}
-                          className="px-3 py-1.5 bg-[#0b4d36] hover:bg-[#0a3f2d] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Tinjau</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-[#6b8279]">
-                    Tidak ada data pengajuan karya pada kategori ini.
+                    {error
+                      ? 'Terjadi kesalahan saat memuat data.'
+                      : 'Tidak ada data pengajuan karya pada kategori ini.'}
                   </td>
                 </tr>
               )}
@@ -304,125 +421,147 @@ export default function SubmissionsValidationPage() {
         </div>
       </div>
 
-      {/* Modal Popup Tinjau Karya & Foto Bukti */}
-      {selectedSubmission && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#d7e6dd] max-w-2xl w-full p-4 sm:p-6 space-y-4 sm:space-y-6 shadow-2xl my-4 sm:my-8 max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="flex justify-between items-start border-b border-[#d7e6dd] pb-3 sm:pb-4 gap-2">
-              <div className="space-y-1 pr-2">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <span className="bg-[#e1f3e9] text-[#0b4d36] text-[10px] font-bold px-2.5 py-0.5 rounded-md">
-                    {selectedSubmission.category}
-                  </span>
-                  <span className="text-xs text-[#1f8a5b] font-bold">
-                    Est. Reward: +{selectedSubmission.points} Pts
-                  </span>
+      {/* Modal Tinjau Karya */}
+      {selectedSubmission && (() => {
+        const guide = getGuide(selectedSubmission);
+        const categoryName = guide?.waste_category?.name ?? '-';
+        const rewardPoints = guide?.reward_points ?? 0;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#d7e6dd] max-w-2xl w-full p-4 sm:p-6 space-y-4 sm:space-y-6 shadow-2xl my-4 sm:my-8 max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex justify-between items-start border-b border-[#d7e6dd] pb-3 sm:pb-4 gap-2">
+                <div className="space-y-1 pr-2">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="bg-[#e1f3e9] text-[#0b4d36] text-[10px] font-bold px-2.5 py-0.5 rounded-md">
+                      {categoryName}
+                    </span>
+                    <span className="text-xs text-[#1f8a5b] font-bold">
+                      {selectedSubmission.status === 'approved'
+                        ? `Poin diberikan: +${selectedSubmission.points_awarded} Pts`
+                        : `Est. Reward: +${rewardPoints} Pts`}
+                    </span>
+                  </div>
+                  <h2 className="text-base sm:text-lg font-serif font-bold text-[#1d3b2f]">
+                    {guide?.title ?? '-'}
+                  </h2>
+                  <p className="text-xs text-[#6b8279]">
+                    Oleh: <strong className="text-[#1d3b2f]">{selectedSubmission.user?.name ?? '-'}</strong> &middot; Diunggah {formatDate(selectedSubmission.created_at)}
+                  </p>
                 </div>
-                <h2 className="text-base sm:text-lg font-serif font-bold text-[#1d3b2f]">
-                  {selectedSubmission.guideTitle}
-                </h2>
-                <p className="text-xs text-[#6b8279]">
-                  Oleh: <strong className="text-[#1d3b2f]">{selectedSubmission.userName}</strong> &middot; Diunggah {selectedSubmission.submittedAt}
-                </p>
+
+                <button
+                  onClick={() => setSelectedSubmission(null)}
+                  className="p-1.5 text-[#6b8279] hover:bg-[#f5faf7] rounded-xl cursor-pointer shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <button
-                onClick={() => setSelectedSubmission(null)}
-                className="p-1.5 text-[#6b8279] hover:bg-[#f5faf7] rounded-xl cursor-pointer shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Visual Foto Bukti Karya */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-[#1d3b2f]">Foto Bukti Karya User:</label>
-              <div className="relative h-48 sm:h-64 w-full rounded-xl sm:rounded-2xl overflow-hidden bg-[#e1f3e9] border border-[#d7e6dd]">
-                <img
-                  src={selectedSubmission.proofImage}
-                  alt="Foto Bukti Karya"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
-
-            {/* Catatan User */}
-            <div className="p-3.5 sm:p-4 bg-[#f5faf7] rounded-xl sm:rounded-2xl border border-[#d7e6dd] space-y-1">
-              <span className="text-[10px] font-bold text-[#6b8279] uppercase tracking-wider flex items-center gap-1">
-                <FileText className="w-3 h-3" /> Catatan dari Pengunggah:
-              </span>
-              <p className="text-xs text-[#1d3b2f] leading-relaxed">
-                &ldquo;{selectedSubmission.userNote}&rdquo;
-              </p>
-            </div>
-
-            {/* Status Info / Form Alasan Penolakan */}
-            {selectedSubmission.status === 'rejected' && selectedSubmission.rejectionReason && (
-              <div className="p-3.5 sm:p-4 bg-red-50 border border-red-200 rounded-xl sm:rounded-2xl text-xs space-y-1">
-                <span className="font-bold text-red-700 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" /> Alasan Penolakan Sebelumnya:
-                </span>
-                <p className="text-red-600">{selectedSubmission.rejectionReason}</p>
-              </div>
-            )}
-
-            {isRejecting && (
-              <div className="p-3.5 sm:p-4 bg-red-50 border border-red-200 rounded-xl sm:rounded-2xl space-y-2 animate-in fade-in duration-150">
-                <label className="block text-xs font-bold text-red-700">
-                  Tuliskan Alasan Penolakan (akan dikirimkan ke user):
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Contoh: Foto karya buram, atau tidak sesuai dengan tutorial yang dipilih."
-                  value={rejectReasonInput}
-                  onChange={e => setRejectReasonInput(e.target.value)}
-                  className="w-full bg-white border border-red-200 rounded-xl p-3 text-xs text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-1">
-                  <button
-                    onClick={() => setIsRejecting(false)}
-                    className="w-full sm:w-auto px-3 py-1.5 rounded-lg border border-red-200 text-xs font-bold text-red-700 hover:bg-red-100 cursor-pointer text-center"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    onClick={() => handleReject(selectedSubmission.id)}
-                    className="w-full sm:w-auto px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer text-center"
-                  >
-                    Konfirmasi Tolak
-                  </button>
+              {/* Foto Bukti Karya */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-[#1d3b2f]">Foto Bukti Karya User:</label>
+                <div className="relative h-48 sm:h-64 w-full rounded-xl sm:rounded-2xl overflow-hidden bg-[#e1f3e9] border border-[#d7e6dd]">
+                  {selectedSubmission.proof_image ? (
+                    <img
+                      src={selectedSubmission.proof_image}
+                      alt="Foto Bukti Karya"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[#6b8279] text-xs">
+                      Tidak ada foto bukti
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
 
-            {/* Modal Actions */}
-            <div className="pt-3 sm:pt-4 border-t border-[#d7e6dd] flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-              <span className="text-xs text-[#6b8279]">
-                Status saat ini:{' '}
-                <strong className="uppercase text-[#0b4d36]">{selectedSubmission.status}</strong>
-              </span>
-
-              {selectedSubmission.status === 'pending' && !isRejecting && (
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={() => setIsRejecting(true)}
-                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <X className="w-4 h-4" /> Tolak Karya
-                  </button>
-                  <button
-                    onClick={() => handleApprove(selectedSubmission.id)}
-                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0b4d36] hover:bg-[#0a3f2d] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
-                  >
-                    <Check className="w-4 h-4" /> Setujui (+{selectedSubmission.points} Pts)
-                  </button>
+              {/* Alasan Penolakan jika sudah rejected */}
+              {selectedSubmission.status === 'rejected' && selectedSubmission.review_note && (
+                <div className="p-3.5 sm:p-4 bg-red-50 border border-red-200 rounded-xl sm:rounded-2xl text-xs space-y-1">
+                  <span className="font-bold text-red-700 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" /> Alasan Penolakan:
+                  </span>
+                  <p className="text-red-600">{selectedSubmission.review_note}</p>
                 </div>
               )}
+
+              {/* Info reviewer jika sudah diproses */}
+              {selectedSubmission.status !== 'pending' && selectedSubmission.reviewer && (
+                <div className="p-3 bg-[#f5faf7] rounded-xl border border-[#d7e6dd] text-xs text-[#6b8279]">
+                  <span>Diproses oleh: </span>
+                  <strong className="text-[#1d3b2f]">{selectedSubmission.reviewer.name}</strong>
+                  <span> pada {formatDate(selectedSubmission.reviewed_at)}</span>
+                </div>
+              )}
+
+              {/* Form Penolakan */}
+              {isRejecting && (
+                <div className="p-3.5 sm:p-4 bg-red-50 border border-red-200 rounded-xl sm:rounded-2xl space-y-2 animate-in fade-in duration-150">
+                  <label className="block text-xs font-bold text-red-700">
+                    Tuliskan Alasan Penolakan (akan dikirimkan ke user):
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Contoh: Foto karya buram, atau tidak sesuai dengan tutorial yang dipilih."
+                    value={rejectReasonInput}
+                    onChange={e => setRejectReasonInput(e.target.value)}
+                    className="w-full bg-white border border-red-200 rounded-xl p-3 text-xs text-[#1d3b2f] focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-1">
+                    <button
+                      onClick={() => setIsRejecting(false)}
+                      disabled={isActionLoading}
+                      className="w-full sm:w-auto px-3 py-1.5 rounded-lg border border-red-200 text-xs font-bold text-red-700 hover:bg-red-100 cursor-pointer text-center disabled:opacity-50"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      onClick={() => handleReject(selectedSubmission.id)}
+                      disabled={isActionLoading}
+                      className="w-full sm:w-auto px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer text-center disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {isActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                      Konfirmasi Tolak
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Footer Actions */}
+              <div className="pt-3 sm:pt-4 border-t border-[#d7e6dd] flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+                <span className="text-xs text-[#6b8279]">
+                  Status saat ini:{' '}
+                  <strong className="uppercase text-[#0b4d36]">{selectedSubmission.status}</strong>
+                </span>
+
+                {selectedSubmission.status === 'pending' && !isRejecting && (
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <button
+                      onClick={() => setIsRejecting(true)}
+                      disabled={isActionLoading}
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <X className="w-4 h-4" /> Tolak Karya
+                    </button>
+                    <button
+                      onClick={() => handleApprove(selectedSubmission.id)}
+                      disabled={isActionLoading}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0b4d36] hover:bg-[#0a3f2d] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                    >
+                      {isActionLoading
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Check className="w-4 h-4" />}
+                      Setujui (+{rewardPoints} Pts)
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

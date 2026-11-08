@@ -10,6 +10,7 @@ class MaterialRequest extends Model
 {
     protected $fillable = [
         'community_id',
+        'permintaan_bahan',
         'waste_category_id',
         'quantity_needed_kg',
         'notes',
