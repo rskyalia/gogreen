@@ -275,12 +275,7 @@ export default function DiyView({ initialId = null }: { initialId?: string | nul
                                 <span className="font-normal text-muted">Kreator komunitas</span>
                             </span>
                         </div>
-<<<<<<< Updated upstream
                         <h1 className="mt-4 font-serif text-2xl font-medium leading-tight text-forest sm:text-3xl">{t.title}</h1>
-=======
-
-                        <h1 className="mt-5 font-serif text-3xl font-medium leading-tight text-forest">{t.title}</h1>
->>>>>>> Stashed changes
                         <p className="mt-3 text-sm leading-relaxed text-muted">{t.summary}</p>
 
                         <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-medium">
@@ -431,14 +426,8 @@ export default function DiyView({ initialId = null }: { initialId?: string | nul
                 </p>
             </header>
 
-<<<<<<< Updated upstream
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                 <label className="flex w-full items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 sm:max-w-sm">
-=======
-            {/* Search + filter */}
-            <div className="flex flex-wrap items-center gap-3">
-                <label className="flex min-w-60 flex-1 items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 sm:max-w-md">
->>>>>>> Stashed changes
                     <Search className="size-4 shrink-0 text-muted" aria-hidden />
                     <input
                         type="search"
@@ -456,12 +445,8 @@ export default function DiyView({ initialId = null }: { initialId?: string | nul
                                 type="button"
                                 onClick={() => setCat(c)}
                                 aria-pressed={cat === c}
-<<<<<<< Updated upstream
                                 className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors sm:px-4 sm:py-2.5 sm:text-sm ${cat === c ? "border-forest bg-forest text-white" : "border-line bg-white text-ink hover:bg-mist"
                                     }`}
-=======
-                                className={`rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${cat === c ? "border-forest bg-forest text-white" : "border-line bg-white text-ink hover:bg-mist"}`}
->>>>>>> Stashed changes
                             >
                                 {c === "Tersimpan" ? `Tersimpan (${saved.size})` : c}
                             </button>
