@@ -19,8 +19,6 @@ import {
   X,
 } from "lucide-react";
 
-// ── Navigation config ─────────────────────────────────────
-
 const MENU = [
   { label: "Ringkasan", href: "/community/dashboard", Icon: LayoutDashboard },
   { label: "Panduan DIY", href: "/community/guides", Icon: BookOpen },

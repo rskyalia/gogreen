@@ -10,6 +10,7 @@ import {
     ImagePlus,
     Lightbulb,
     MapPin,
+    Recycle,
     RotateCcw,
     Sparkles,
     Users,
