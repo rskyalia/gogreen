@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\AiCraftRecommendationController;
 use App\Http\Controllers\Api\PublicDiyGuideController;
 use App\Http\Controllers\Api\PublicWasteCategoryController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Community\DashboardController;
 use App\Http\Controllers\User\DiySubmissionController;
 use App\Http\Controllers\User\MemberCardController;
 use App\Http\Controllers\User\NotificationController;
