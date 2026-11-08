@@ -67,9 +67,9 @@ export default function SetoranView({
     const [sent, setSent] = useState(false);
 
     useEffect(() => {
-        fetchTutorials()
-            .then((list) => {
-                setGuides(list);
+        fetchTutorials({ per_page: 50 })
+            .then((res) => {
+                setGuides(res.tutorials);
                 setGuidesState("ready");
             })
             .catch(() => setGuidesState("error"));
@@ -110,6 +110,7 @@ export default function SetoranView({
         formData.append("proof_image", photo);
         if (notes.trim()) formData.append("notes", notes.trim());
 
+<<<<<<< Updated upstream
         if (mode === "guide") {
             // id harus angka dari tabel diy_guides; id teks berarti masih data contoh
             const id = Number(guideId);
@@ -120,6 +121,18 @@ export default function SetoranView({
                 return;
             }
             formData.append("diy_guide_id", String(id));
+=======
+        if (mode === "guide" && guide) {
+            onSubmit({
+                ...common,
+                guideId: guide.id,
+                title: guide.title,
+                category: guide.category,
+                rewardPoints: guide.rewardPoints,
+                Icon: Leaf,
+                tone: "bg-mint text-forest",
+            });
+>>>>>>> Stashed changes
         } else {
             formData.append("title", customTitle.trim());
             formData.append("category", customCategory);

@@ -8,33 +8,17 @@ import {
     Camera,
     Clock,
     ImagePlus,
-    Leaf,
     Lightbulb,
     MapPin,
-    Recycle,
     RotateCcw,
     Sparkles,
-    Trash2,
     Users,
     type LucideIcon,
 } from "lucide-react";
-import { getTutorial } from "@/lib/tutorials";
+import { fetchTutorials, type Tutorial } from "@/lib/diy";
+import { fetchWasteCategories, type WasteCategory } from "@/lib/waste-categories";
+import { conditions, mapCategoriesToKinds, type Condition, type Kind } from "@/lib/scan-config";
 import AiRecommendationPanel from "./AiRecommendationPanel";
-
-type Kind = "daur-ulang" | "organik" | "residu";
-type Condition = "bersih" | "kotor" | "rusak";
-
-const kinds: { key: Kind; label: string; hint: string; Icon: LucideIcon }[] = [
-    { key: "daur-ulang", label: "Daur ulang", hint: "Botol, galon, kaleng, kardus", Icon: Recycle },
-    { key: "organik", label: "Organik", hint: "Sisa sayur, kulit buah", Icon: Leaf },
-    { key: "residu", label: "Residu", hint: "Tisu bekas, bungkus berminyak", Icon: Trash2 },
-];
-
-const conditions: { key: Condition; label: string; hint: string }[] = [
-    { key: "bersih", label: "Bersih", hint: "Siap diolah" },
-    { key: "kotor", label: "Kotor", hint: "Perlu dicuci" },
-    { key: "rusak", label: "Rusak", hint: "Retak, sobek, atau busuk" },
-];
 
 type Potential = { title: string; text: string; tutorialId?: string };
 
@@ -52,7 +36,6 @@ function getPotential(kind: Kind, cond: Condition): Potential {
                 cond === "rusak"
                     ? "Sampah organik yang sudah busuk tetap cocok untuk kompos. Campur dengan daun kering atau tanah supaya tidak terlalu basah."
                     : "Sisa organik bisa diolah jadi kompos untuk pupuk tanaman. Potong kecil-kecil dan campur dengan daun kering atau tanah.",
-            tutorialId: "organik",
         };
     }
     if (cond === "rusak") {
@@ -63,15 +46,13 @@ function getPotential(kind: Kind, cond: Condition): Potential {
     }
     if (cond === "kotor") {
         return {
-            title: "Cuci dulu, lalu bisa jadi pot tanaman",
-            text: "Bilas dan keringkan bahannya lebih dulu. Setelah bersih, galon atau botol bekas bisa dijadikan pot tanaman.",
-            tutorialId: "galon",
+            title: "Bisa dimanfaatkan setelah dibersihkan",
+            text: "Bilas dan keringkan bahannya lebih dulu. Setelah bersih, banyak bahan daur ulang bisa diolah jadi kerajinan atau dimanfaatkan kembali.",
         };
     }
     return {
-        title: "Bisa jadi pot tanaman",
-        text: "Bahan yang bersih dan utuh siap diolah. Galon atau botol bekas bisa dijadikan pot tanaman dengan langkah sederhana.",
-        tutorialId: "galon",
+        title: "Bisa diolah jadi kerajinan",
+        text: "Bahan yang bersih dan utuh bisa dimanfaatkan jadi berbagai karya. Lihat tutorial dari komunitas di bawah ini.",
     };
 }
 
@@ -127,14 +108,12 @@ function ColumnHeading({
     );
 }
 
-type TutorialItem = NonNullable<ReturnType<typeof getTutorial>>;
-
-function CommunityTutorialCard({ tutorial, onOpen }: { tutorial: TutorialItem; onOpen: () => void }) {
-    const extra = tutorial.materials.length - 4;
+function CommunityTutorialCard({ tutorial, onOpen }: { tutorial: Tutorial; onOpen: () => void }) {
+    const extra = (tutorial.materials?.length ?? 0) - 4;
 
     return (
         <article className="overflow-hidden rounded-2xl border border-line bg-white">
-            <div className={`relative grid h-36 place-items-center overflow-hidden ${tutorial.tone}`}>
+            <div className="relative grid h-36 place-items-center overflow-hidden bg-mint text-forest">
                 {tutorial.image ? (
                     <Image
                         src={tutorial.image}
@@ -145,7 +124,7 @@ function CommunityTutorialCard({ tutorial, onOpen }: { tutorial: TutorialItem; o
                         className="object-cover"
                     />
                 ) : (
-                    <tutorial.Icon className="size-14 opacity-70" strokeWidth={1.25} aria-hidden />
+                    <Recycle className="size-14 opacity-70" strokeWidth={1.25} aria-hidden />
                 )}
                 <span className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-semibold text-forest">
                     {tutorial.category}
@@ -174,19 +153,21 @@ function CommunityTutorialCard({ tutorial, onOpen }: { tutorial: TutorialItem; o
                         <Clock className="size-3.5" aria-hidden />
                         {tutorial.time}
                     </span>
-                    <span>{tutorial.steps.length} langkah</span>
+                    <span>{tutorial.steps?.length ?? 0} langkah</span>
                 </div>
 
-                <ul className="flex flex-wrap gap-1.5" aria-label="Bahan">
-                    {tutorial.materials.slice(0, 4).map((m) => (
-                        <li key={m} className="rounded-full border border-line bg-paper px-3 py-1 text-xs text-ink">
-                            {m}
-                        </li>
-                    ))}
-                    {extra > 0 && (
-                        <li className="rounded-full border border-line bg-paper px-3 py-1 text-xs text-muted">+{extra} lagi</li>
-                    )}
-                </ul>
+                {(tutorial.materials?.length ?? 0) > 0 && (
+                    <ul className="flex flex-wrap gap-1.5" aria-label="Bahan">
+                        {(tutorial.materials ?? []).slice(0, 4).map((m) => (
+                            <li key={m} className="rounded-full border border-line bg-paper px-3 py-1 text-xs text-ink">
+                                {m}
+                            </li>
+                        ))}
+                        {extra > 0 && (
+                            <li className="rounded-full border border-line bg-paper px-3 py-1 text-xs text-muted">+{extra} lagi</li>
+                        )}
+                    </ul>
+                )}
 
                 <button
                     type="button"
@@ -206,9 +187,18 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
     const [kind, setKind] = useState<Kind | null>(null);
     const [cond, setCond] = useState<Condition | null>(null);
     const [shown, setShown] = useState(false);
-    // Key dipakai untuk reset AiRecommendationPanel saat scan baru dimulai
     const [aiKey, setAiKey] = useState(0);
     const resultRef = useRef<HTMLElement>(null);
+
+    const [kinds, setKinds] = useState<Array<{ key: string; label: string; hint: string; slug: string }>>([]);
+    const [loadingKinds, setLoadingKinds] = useState(true);
+
+    useEffect(() => {
+        fetchWasteCategories()
+            .then((cats) => setKinds(mapCategoriesToKinds(cats)))
+            .catch(() => setKinds([]))
+            .finally(() => setLoadingKinds(false));
+    }, []);
 
     useEffect(() => {
         return () => {
@@ -216,7 +206,6 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
         };
     }, [preview]);
 
-    // Geser layar ke hasil setelah "Lihat potensi olahan" diklik
     useEffect(() => {
         if (!shown) return;
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -230,7 +219,7 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
             setShown(false);
             setAiKey((k) => k + 1);
         }
-        e.target.value = ""; // supaya foto yang sama bisa dipilih lagi
+        e.target.value = "";
     };
 
     const reset = () => {
@@ -243,29 +232,30 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
 
     const ready = Boolean(preview && kind && cond);
     const potential = kind && cond ? getPotential(kind, cond) : null;
-    const tutorial = potential?.tutorialId ? getTutorial(potential.tutorialId) : undefined;
+
+    const [tutorials, setTutorials] = useState<Tutorial[]>([]);
+    useEffect(() => {
+        fetchTutorials({ per_page: 10 })
+            .then((res) => setTutorials(res.tutorials))
+            .catch(() => setTutorials([]));
+    }, []);
+
+    const tutorial = kind ? tutorials.find((t) => t.categorySlug === kind || t.difficulty === kind) ?? tutorials[0] : undefined;
 
     const showAi = kind !== "residu";
     const showBank = kind !== "organik";
 
-    /** Mapping kind → waste_type untuk API AI */
     const aiWasteType = kind === "organik" ? "organic" : kind === "residu" ? "residue" : "recyclable";
 
-    /** Nama objek deskriptif untuk AI berdasarkan pilihan user */
     const aiObjectName =
         kind === "organik"
             ? "sisa organik (sayur/buah)"
             : kind === "residu"
                 ? "sampah residu"
-                : cond === "bersih"
-                    ? "botol/galon plastik bersih"
-                    : cond === "kotor"
-                        ? "botol/galon plastik kotor"
-                        : "bahan daur ulang rusak";
+                : "bahan daur ulang";
 
-    /** Material sampah untuk AI */
     const aiMaterial =
-        kind === "organik" ? "organik" : kind === "residu" ? "campuran" : "plastik";
+        kind === "organik" ? "organik" : kind === "residu" ? "campuran" : "recyclable";
 
     return (
         <div className="space-y-6">
@@ -308,22 +298,27 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
                     <fieldset>
                         <legend className="text-sm font-semibold text-ink">Jenis sampah</legend>
                         <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                            {kinds.map(({ key, label, hint, Icon }) => (
-                                <Choice
-                                    key={key}
-                                    name="kind"
-                                    value={key}
-                                    checked={kind === key}
-                                    onChange={() => {
-                                        setKind(key);
-                                        setShown(false);
-                                    }}
-                                >
-                                    <Icon className="size-5 text-leaf" aria-hidden />
-                                    <span className="mt-2 block text-sm font-semibold text-ink">{label}</span>
-                                    <span className="mt-0.5 block text-xs leading-snug text-muted">{hint}</span>
-                                </Choice>
-                            ))}
+                            {loadingKinds ? (
+                                <div className="col-span-full text-sm text-muted">Memuat kategori...</div>
+                            ) : kinds.length === 0 ? (
+                                <div className="col-span-full text-sm text-muted">Tidak ada kategori tersedia.</div>
+                            ) : (
+                                kinds.map(({ key, label, hint }) => (
+                                    <Choice
+                                        key={key}
+                                        name="kind"
+                                        value={key}
+                                        checked={kind === key}
+                                        onChange={() => {
+                                            setKind(key);
+                                            setShown(false);
+                                        }}
+                                    >
+                                        <span className="block text-sm font-semibold text-ink">{label}</span>
+                                        <span className="mt-0.5 block text-xs leading-snug text-muted">{hint}</span>
+                                    </Choice>
+                                ))
+                            )}
                         </div>
                     </fieldset>
 
@@ -387,11 +382,7 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
                             {showBank && (
                                 <Link
                                     href="/waste-banks"
-                                    className={
-                                        tutorial
-                                            ? "flex items-center gap-1.5 rounded-xl border border-forest/30 px-5 py-2.5 text-sm font-semibold text-forest transition-colors hover:bg-white/60"
-                                            : "flex items-center gap-1.5 rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
-                                    }
+                                    className="flex items-center gap-1.5 rounded-xl border border-forest/30 px-5 py-2.5 text-sm font-semibold text-forest transition-colors hover:bg-white/60"
                                 >
                                     <MapPin className="size-4" aria-hidden />
                                     Cari bank sampah

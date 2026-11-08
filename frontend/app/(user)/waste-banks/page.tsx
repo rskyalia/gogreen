@@ -1,6 +1,7 @@
 'use client';
 
 /**
+ * 
  * /waste-banks  — pencarian & peta bank sampah
  *
  * Alur:
