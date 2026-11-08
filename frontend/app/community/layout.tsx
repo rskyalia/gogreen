@@ -30,7 +30,6 @@ import {
   PackagePlus,
   X,
 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
 
 // ── Nav config ─────────────────────────────────────────────────────────────
 
