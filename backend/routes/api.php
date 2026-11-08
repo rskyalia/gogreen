@@ -18,6 +18,7 @@ use App\Http\Controllers\User\PointLedgerController;
 use App\Http\Controllers\User\SummaryController;
 use App\Http\Controllers\User\UserDepositController;
 use App\Http\Controllers\User\WasteBankSearchController;
+use App\Http\Controllers\Community\DashboardController;
 use App\Http\Controllers\WasteBank\DepositController;
 use App\Http\Controllers\WasteBank\MaterialRequestController;
 use App\Http\Controllers\WasteBank\ProfileController;
