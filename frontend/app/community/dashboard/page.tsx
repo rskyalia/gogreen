@@ -104,7 +104,7 @@ export default function CommunityDashboardPage() {
           <h1 className="mt-1 font-serif text-2xl font-medium text-forest sm:text-3xl">
             {loading
               ? <span className="inline-block h-7 w-40 animate-pulse rounded-lg bg-mist align-middle" />
-              : <>Halo, {data?.user?.name ?? "Tim Komunitas"}! 🌿</>
+              : <>Halo, {data?.user?.name ?? "Tim Komunitas"}! </>
             }
           </h1>
           <p className="mt-1 text-xs text-muted">

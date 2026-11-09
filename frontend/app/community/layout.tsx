@@ -1,10 +1,12 @@
-'use client';
+"use client";
 
 import "../globals.css";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { api, getToken } from "@/lib/api";
+import { timeAgo } from "@/lib/timeAgo";
 
 import {
   Bell,
@@ -13,20 +15,28 @@ import {
   FileText,
   LayoutDashboard,
   Leaf,
+  Loader2,
   LogOut,
   Menu,
   PackagePlus,
   X,
-} from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+} from "lucide-react";
 
 // ── Nav config ─────────────────────────────────────────────────────────────
 
 const MENU = [
   { label: "Ringkasan", href: "/community/dashboard", Icon: LayoutDashboard },
   { label: "Panduan DIY", href: "/community/guides", Icon: BookOpen },
-  { label: "Validasi Karya", href: "/community/submissions", Icon: CheckSquare },
-  { label: "Request Bahan", href: "/community/material-requests", Icon: PackagePlus },
+  {
+    label: "Validasi Karya",
+    href: "/community/submissions",
+    Icon: CheckSquare,
+  },
+  {
+    label: "Request Bahan",
+    href: "/community/material-requests",
+    Icon: PackagePlus,
+  },
 ];
 
 // ── Logo ──────────────────────────────────────────────────
@@ -58,7 +68,10 @@ function NavLinks({
   onNavigate?: () => void;
 }) {
   return (
-    <nav className="flex-1 space-y-1 overflow-y-auto" aria-label="Menu komunitas">
+    <nav
+      className="flex-1 space-y-1 overflow-y-auto"
+      aria-label="Menu komunitas"
+    >
       {MENU.map(({ label, href, Icon }) => {
         const active = pathname === href;
 
@@ -210,6 +223,58 @@ function MobileDrawer({
   );
 }
 
+// ── Mobile bottom navigation ──────────────────────────────
+
+function MobileBottomNav({ pathname }: { pathname: string }) {
+  return (
+    <nav
+      aria-label="Navigasi bawah mobile"
+      className="fixed bottom-0 left-0 right-0 z-30 border-t border-line bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.4rem)] pt-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] backdrop-blur-md md:hidden"
+    >
+      <div className="mx-auto grid max-w-md grid-cols-4 items-center gap-1">
+        {MENU.map(({ label, href, Icon }) => {
+          const active =
+            pathname === href ||
+            (href !== "/community/dashboard" && pathname.startsWith(href));
+
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={[
+                "group flex flex-col items-center justify-center gap-1 rounded-xl py-1 transition-all",
+                active
+                  ? "text-forest font-bold"
+                  : "text-muted hover:text-ink active:scale-95",
+              ].join(" ")}
+            >
+              <div
+                className={[
+                  "relative grid size-8 place-items-center rounded-full transition-all",
+                  active
+                    ? "bg-forest text-mint shadow-xs"
+                    : "text-ink/60 group-hover:bg-mist",
+                ].join(" ")}
+              >
+                <Icon className="size-4" aria-hidden />
+              </div>
+              <span
+                className={[
+                  "truncate text-[10px] leading-none tracking-tight",
+                  active ? "font-bold text-forest" : "font-medium text-muted",
+                ].join(" ")}
+              >
+                {label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 // ── Notification bell ─────────────────────────────────────
 
 interface Notif {
@@ -217,46 +282,165 @@ interface Notif {
   author: string;
   title: string;
   time: string;
+  status: string;
   read: boolean;
 }
 
-const DUMMY_NOTIFS: Notif[] = [
-  {
-    id: "1",
-    author: "Budi Santoso",
-    title: "Pot Bunga dari Botol Plastik Bekas",
-    time: "10 mnt lalu",
-    read: false,
-  },
-  {
-    id: "2",
-    author: "Siti Rahma",
-    title: "Lampu Hias dari Bambu Daur Ulang",
-    time: "1 jam lalu",
-    read: false,
-  },
-  {
-    id: "3",
-    author: "Ahmad Fauzi",
-    title: "Kompostor Sederhana Skala Rumah Tangga",
-    time: "3 jam lalu",
-    read: true,
-  },
-];
+interface SubmissionItem {
+  id: string;
+  author: string;
+  title: string;
+  time: string;
+  status: string;
+}
+
+let cachedSubmissions: SubmissionItem[] | null = null;
+let lastFetchTime = 0;
+let inFlightPromise: Promise<SubmissionItem[]> | null = null;
+
+async function fetchDiySubmissions(): Promise<SubmissionItem[]> {
+  // 1. Ambil data dari /community/dashboard (endpoint dashboard komunitas yang mengambil dari diy_submissions)
+  try {
+    const res = await api.get<{
+      data: {
+        submissions?: Array<{
+          id: number;
+          user: string;
+          guide: string;
+          status: string;
+          created_at: string | null;
+        }>;
+      };
+    }>("/community/dashboard?limit=10");
+
+    if (res?.data?.submissions && Array.isArray(res.data.submissions)) {
+      return res.data.submissions.map((s) => ({
+        id: String(s.id),
+        author: s.user || "Pengguna",
+        title: s.guide || "Karya DIY",
+        time: timeAgo(s.created_at),
+        status: s.status,
+      }));
+    }
+  } catch {
+    // Abaikan jika bukan role community atau endpoint tidak tersedia
+  }
+
+  // 2. Fallback: ambil data dari /admin/diy-submissions jika ada akses developer
+  try {
+    const adminRes = await api.get<{
+      data: Array<{
+        id: number;
+        user?: { name: string } | null;
+        diy_guide?: { title: string } | null;
+        diyGuide?: { title: string } | null;
+        title?: string | null;
+        status: string;
+        created_at: string | null;
+      }>;
+    }>("/admin/diy-submissions?per_page=10");
+
+    if (adminRes?.data && Array.isArray(adminRes.data)) {
+      return adminRes.data.map((s) => ({
+        id: String(s.id),
+        author: s.user?.name || "Pengguna",
+        title: s.diy_guide?.title ?? s.diyGuide?.title ?? s.title ?? "Karya DIY",
+        time: timeAgo(s.created_at),
+        status: s.status,
+      }));
+    }
+  } catch {
+    // Abaikan jika tidak punya akses ke admin endpoint
+  }
+
+  return [];
+}
+
+async function getDiySubmissions(force = false): Promise<SubmissionItem[]> {
+  const now = Date.now();
+  if (!force && cachedSubmissions && now - lastFetchTime < 10000) {
+    return cachedSubmissions;
+  }
+  if (inFlightPromise) {
+    return inFlightPromise;
+  }
+
+  inFlightPromise = (async () => {
+    try {
+      const items = await fetchDiySubmissions();
+      cachedSubmissions = items;
+      lastFetchTime = Date.now();
+      return items;
+    } finally {
+      inFlightPromise = null;
+    }
+  })();
+
+  return inFlightPromise;
+}
 
 function NotifBell() {
   const [open, setOpen] = useState(false);
-  const [notifs, setNotifs] = useState<Notif[]>(DUMMY_NOTIFS);
+  const [loading, setLoading] = useState(true);
+  const [notifs, setNotifs] = useState<Notif[]>([]);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  const unread = notifs.filter((item) => !item.read).length;
+  const [readIds, setReadIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem("gg_read_community_submissions");
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const readIdsRef = useRef(readIds);
+  readIdsRef.current = readIds;
+
+  const loadSubmissions = useCallback(async (force = false) => {
+    if (!getToken()) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const items = await getDiySubmissions(force);
+      setNotifs(
+        items.map((item) => ({
+          ...item,
+          read: readIdsRef.current.has(item.id) || item.status !== "pending",
+        }))
+      );
+    } catch (err) {
+      console.error("Gagal memuat notifikasi karya:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSubmissions();
+
+    const handleTick = () => {
+      if (document.visibilityState === "visible") {
+        loadSubmissions(true);
+      }
+    };
+
+    const timer = setInterval(handleTick, 30_000);
+    document.addEventListener("visibilitychange", handleTick);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleTick);
+    };
+  }, [loadSubmissions]);
 
   useEffect(() => {
     if (!open) return;
 
     function handleOutside(event: MouseEvent) {
-      const element = document.getElementById("notif-panel");
-
-      if (element && !element.contains(event.target as Node)) {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
     }
@@ -268,18 +452,41 @@ function NotifBell() {
     };
   }, [open]);
 
+  const markAllAsRead = useCallback(() => {
+    setNotifs((prev) => prev.map((item) => ({ ...item, read: true })));
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      notifs.forEach((n) => next.add(n.id));
+      try {
+        localStorage.setItem(
+          "gg_read_community_submissions",
+          JSON.stringify(Array.from(next))
+        );
+      } catch {
+        // Abaikan jika quota / localStorage error
+      }
+      return next;
+    });
+  }, [notifs]);
+
+  const handleToggle = () => {
+    setOpen((prev) => {
+      const willOpen = !prev;
+      if (willOpen) {
+        markAllAsRead();
+        loadSubmissions(true);
+      }
+      return willOpen;
+    });
+  };
+
+  const unread = notifs.filter((item) => !item.read).length;
+
   return (
-    <div id="notif-panel" className="relative">
+    <div ref={panelRef} className="relative">
       <button
         type="button"
-        onClick={() => {
-          setOpen((previous) => !previous);
-          if (!open) {
-            setNotifs((previous) =>
-              previous.map((item) => ({ ...item, read: true }))
-            );
-          }
-        }}
+        onClick={handleToggle}
         aria-label="Notifikasi"
         className="relative grid size-9 place-items-center rounded-xl text-muted transition-colors hover:bg-mist hover:text-forest"
       >
@@ -295,9 +502,7 @@ function NotifBell() {
       {open && (
         <div className="absolute right-0 top-full z-50 mt-2 w-[min(calc(100vw-2rem),22rem)] overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
           <div className="flex items-center justify-between border-b border-line bg-paper px-4 py-3">
-            <p className="text-xs font-bold text-ink">
-              Pengajuan Karya
-            </p>
+            <p className="text-xs font-bold text-ink">Pengajuan Karya</p>
 
             <Link
               href="/community/submissions"
@@ -309,7 +514,12 @@ function NotifBell() {
           </div>
 
           <ul className="max-h-72 divide-y divide-line overflow-y-auto">
-            {notifs.length === 0 ? (
+            {loading && notifs.length === 0 ? (
+              <li className="flex items-center justify-center gap-2 py-8 text-xs text-muted">
+                <Loader2 className="size-4 animate-spin text-forest" />
+                <span>Memuat notifikasi...</span>
+              </li>
+            ) : notifs.length === 0 ? (
               <li className="py-8 text-center text-xs text-muted">
                 Belum ada notifikasi.
               </li>
@@ -318,25 +528,49 @@ function NotifBell() {
                 <li
                   key={item.id}
                   className={[
-                    "flex items-start gap-3 px-4 py-3",
-                    !item.read ? "bg-mist/40" : "",
+                    "transition-colors hover:bg-mist/40",
+                    !item.read ? "bg-mist/30" : "",
                   ].join(" ")}
                 >
-                  <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-mint text-forest">
-                    <FileText className="size-3.5" aria-hidden />
-                  </span>
+                  <Link
+                    href="/community/submissions"
+                    onClick={() => setOpen(false)}
+                    className="flex items-start gap-3 px-4 py-3"
+                  >
+                    <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-mint text-forest">
+                      <FileText className="size-3.5" aria-hidden />
+                    </span>
 
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-ink">
-                      {item.author}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted line-clamp-2">
-                      {item.title}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted">
-                      {item.time}
-                    </p>
-                  </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="truncate text-xs font-semibold text-ink">
+                          {item.author}
+                        </p>
+                        {item.status && (
+                          <span
+                            className={[
+                              "shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-medium",
+                              item.status === "pending"
+                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : item.status === "approved"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : "bg-rose-50 text-rose-700 border border-rose-200",
+                            ].join(" ")}
+                          >
+                            {item.status === "pending"
+                              ? "Menunggu"
+                              : item.status === "approved"
+                              ? "Disetujui"
+                              : "Ditolak"}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted line-clamp-2">
+                        {item.title}
+                      </p>
+                      <p className="mt-1 text-[10px] text-muted">{item.time}</p>
+                    </div>
+                  </Link>
                 </li>
               ))
             )}
@@ -427,12 +661,15 @@ export default function CommunityLayout({
 
         <main
           id="main-content"
-          className="mx-auto w-full max-w-[1400px] p-4 pb-8 sm:p-6 lg:px-8 lg:py-8"
+          className="mx-auto w-full max-w-[1400px] p-4 pb-24 sm:p-6 sm:pb-8 lg:px-8 lg:py-8"
           tabIndex={-1}
         >
           {children}
         </main>
       </div>
+
+      {/* Mobile bottom nav */}
+      <MobileBottomNav pathname={pathname} />
     </div>
   );
 }

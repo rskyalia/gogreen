@@ -21,7 +21,7 @@ use App\Http\Controllers\User\PointLedgerController;
 use App\Http\Controllers\User\SummaryController;
 use App\Http\Controllers\User\UserDepositController;
 use App\Http\Controllers\User\WasteBankSearchController;
-use App\Http\Controllers\Community\DashboardController;
+// use App\Http\Controllers\Community\DashboardController;
 use App\Http\Controllers\WasteBank\DepositController;
 use App\Http\Controllers\WasteBank\MaterialRequestController;
 use App\Http\Controllers\WasteBank\ProfileController;
@@ -139,6 +139,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('material-requests', [App\Http\Controllers\Community\MaterialRequestController::class, 'store']);
         Route::patch('material-requests/{id}', [App\Http\Controllers\Community\MaterialRequestController::class, 'update']);
         Route::delete('material-requests/{id}', [App\Http\Controllers\Community\MaterialRequestController::class, 'destroy']);
+
+        // Validasi karya komunitas
+        Route::get('diy-submissions', [AdminDiySubmissionController::class, 'index']);
+        Route::patch('diy-submissions/{id}/review', [AdminDiySubmissionController::class, 'review']);
     });
 
     // ── Developer ─────────────────────────────────────────────────────────
@@ -187,8 +191,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('diy-guides/{id}', [DiyGuideController::class, 'destroy']);
     });
 
-    // Developer saja — validasi karya
-    Route::middleware('role:developer')->prefix('admin')->group(function () {
+    // Developer + Community — validasi karya
+    Route::middleware('role:developer,community')->prefix('admin')->group(function () {
         Route::get('diy-submissions', [AdminDiySubmissionController::class, 'index']);
         Route::patch('diy-submissions/{id}/review', [AdminDiySubmissionController::class, 'review']);
     });
