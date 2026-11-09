@@ -49,8 +49,11 @@ export function proxy(request: NextRequest) {
   // ── Sudah login → coba buka halaman auth → redirect ke dashboard ──────
   if (isAuthRoute && token && userJson) {
     try {
-      const u = JSON.parse(decodeURIComponent(userJson)) as { role: string };
-      return NextResponse.redirect(new URL(dashboardFor(u.role), request.url));
+      const decoded = decodeURIComponent(userJson);
+      const u = JSON.parse(decoded) as { role: string };
+      if (u?.role) {
+        return NextResponse.redirect(new URL(dashboardFor(u.role), request.url));
+      }
     } catch {
       // cookie rusak, biarkan lanjut ke /login
     }
@@ -66,7 +69,10 @@ export function proxy(request: NextRequest) {
   // ── Sudah login → validasi role sesuai prefix ──────────────────────────
   if (isProtected && token && userJson) {
     try {
-      const u = JSON.parse(decodeURIComponent(userJson)) as { role: string };
+      const decoded = decodeURIComponent(userJson);
+      const u = JSON.parse(decoded) as { role: string };
+
+      if (!u?.role) return NextResponse.next(); // data corrupt, biarkan client handle
 
       for (const [prefix, allowedRoles] of Object.entries(ROLE_ROUTES)) {
         if (pathname.startsWith(prefix) && !allowedRoles.includes(u.role)) {

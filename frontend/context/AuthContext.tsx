@@ -71,11 +71,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     fetchMe()
       .then(setUser)
-      .catch(() => {
-        // Token invalid / expired — bersihkan semua
-        setUser(null);
-        removeUser();
-        removeToken();
+      .catch((err) => {
+        // Hanya logout jika benar-benar 401 (token invalid/expired).
+        // Error jaringan (TypeError: Failed to fetch) atau 5xx jangan
+        // sampai menghapus sesi — user masih login, backend sementara down.
+        const status = (err as { status?: number })?.status;
+        if (status === 401) {
+          setUser(null);
+          removeUser();
+          removeToken();
+        }
+        // Selain 401: pertahankan cache, biarkan user tetap login
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -105,19 +111,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.warn('Gagal memanggil API logout di server:', error);
     } finally {
-      // 1. Reset State User
+      // Reset state & storage — JANGAN pakai localStorage.clear()
+      // karena bisa menghapus data aplikasi lain di domain yang sama.
       setUser(null);
-
-      // 2. Hapus Cache & Token di Penyimpanan Lokal
       removeUser();
       removeToken();
-      localStorage.clear();
-      sessionStorage.clear();
 
-      // 3. Hapus Cookie jika digunakan
-      document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+      // Hapus cookie manual sebagai fallback
+      document.cookie = 'gg_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+      document.cookie = 'gg_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+      document.cookie = 'gg_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
 
-      // 4. Force hard reload ke Beranda / Landing Page Utama ('/')
       window.location.href = '/';
     }
   }, []);

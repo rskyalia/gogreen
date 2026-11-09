@@ -61,8 +61,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (res.status === 401) {
     if (typeof window !== 'undefined') {
       removeToken();
-      // Hapus user cache juga
       localStorage.removeItem('gg_user');
+      localStorage.removeItem('gg_token');
+      // Hapus cookie
+      document.cookie = 'gg_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+      document.cookie = 'gg_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
       // Redirect; hindari loop jika sudah di /login
       if (!window.location.pathname.startsWith('/login')) {
         window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
