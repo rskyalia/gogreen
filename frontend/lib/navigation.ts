@@ -22,6 +22,7 @@ import {
   MapPin,
   ScanLine,
   QrCode,
+  Recycle,
   Upload,
   BarChart3,
   History,
@@ -44,22 +45,23 @@ export interface NavGroup {
 // ── Menu user (warga) ─────────────────────────────────────────────────────
 
 export const USER_NAV: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Scan Sampah', href: '/scan', icon: ScanLine },
-  { label: 'Kartu Member', href: '/member-card', icon: QrCode },
-  { label: 'Bank Sampah', href: '/waste-banks', icon: MapPin },
-  { label: 'Komunitas DIY', href: '/komunitas-diy', icon: BookOpen },
-  { label: 'Upload Karya', href: '/upload-karya', icon: Upload },
-  { label: 'Dampak Saya', href: '/dampak-saya', icon: BarChart3 },
-  { label: 'Riwayat Setor', href: '/deposits', icon: History },
-  { label: 'Riwayat Poin', href: '/points', icon: Coins },
+  { label: 'Dashboard',      href: '/dashboard',    icon: LayoutDashboard },
+  { label: 'Scan Sampah',    href: '/scan',         icon: ScanLine        },
+  { label: 'Kartu Member',   href: '/member-card',  icon: QrCode          },
+  { label: 'Setor Sampah',   href: '/setor',        icon: Recycle         },
+  { label: 'Bank Sampah',    href: '/waste-banks',  icon: MapPin          },
+  { label: 'Komunitas DIY',  href: '/komunitas-diy', icon: BookOpen       },
+  { label: 'Upload Karya',   href: '/upload-karya', icon: Upload          },
+  { label: 'Dampak Saya',    href: '/dampak-saya',  icon: BarChart3       },
+  { label: 'Riwayat Setor',  href: '/deposits',     icon: History         },
+  { label: 'Riwayat Poin',   href: '/points',       icon: Coins           },
 ];
 
 // ── Menu bank sampah ──────────────────────────────────────────────────────
 export const WASTE_BANK_NAV: NavItem[] = [
   { label: 'Ringkasan', href: '/waste-bank/dashboard', icon: LayoutDashboard },
   { label: 'Pindai Member', href: '/waste-bank/members/scan', icon: ScanLine },
-  { label: 'Input Setoran', href: '/waste-bank/deposits/new', icon: ArrowDownToLine },
+  { label: 'Input Setoran', href: '/waste-bank/deposits/scan', icon: ArrowDownToLine },
   { label: 'Rekapan', href: '/waste-bank/deposits', icon: ClipboardList },
   // { label: 'Profil',         href: '/waste-bank/profile',           icon: User            },
   { label: 'Request Bahan', href: '/waste-bank/material-requests', icon: Package },

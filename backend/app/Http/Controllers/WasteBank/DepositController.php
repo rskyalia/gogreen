@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\WasteBank;
 
+use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\WasteBank\MemberLookupRequest;
 use App\Http\Requests\WasteBank\StoreDepositRequest;
@@ -9,6 +10,7 @@ use App\Http\Resources\DepositResource;
 use App\Http\Resources\MemberResource;
 use App\Models\User;
 use App\Services\DepositService;
+use App\Services\DraftDepositService;
 use App\Services\QrTokenService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +23,108 @@ class DepositController extends Controller
     public function __construct(
         private readonly DepositService $depositService,
         private readonly QrTokenService $qrTokenService,
+        private readonly DraftDepositService $draftDepositService,
     ) {}
+
+    /**
+     * GET /api/waste-bank/deposits/scan?token=
+     *
+     * Petugas bank sampah scan QR code dari user.
+     * Return: draft deposit details untuk preview sebelum approve.
+     */
+    public function scanQr(Request $request): JsonResponse
+    {
+        $request->validate([
+            'token' => 'required|string|size:32',
+        ]);
+
+        $token = (string) $request->input('token');
+        $wasteBank = $request->user()->wasteBank()->firstOrFail();
+
+        try {
+            $draft = $this->draftDepositService->findByToken($token, $wasteBank->id);
+
+            return response()->json([
+                'data' => [
+                    'draft_id' => $draft->id,
+                    'user' => [
+                        'id' => $draft->user->id,
+                        'name' => $draft->user->name,
+                        'member_code' => $draft->user->member_code,
+                    ],
+                    'waste_bank_name' => $draft->wasteBank->name,
+                    'notes' => $draft->notes,
+                    'items' => $draft->items->map(fn ($item) => [
+                        'id' => $item->id,
+                        'waste_category_id' => $item->waste_category_id,
+                        'waste_category_name' => $item->wasteCategory->name,
+                        'weight_kg' => (float) $item->weight_kg,
+                        'points_per_kg' => $item->wasteCategory->points_per_kg,
+                    ])->values(),
+                    'expires_at' => $draft->expires_at?->toIso8601String(),
+                ],
+            ]);
+        } catch (ApiException $e) {
+            $httpStatus = match ($e->getCode()) {
+                403 => 403,
+                422 => 422,
+                409 => 409,
+                default => 404,
+            };
+
+            $code = match ($e->getCode()) {
+                403 => 'wrong_waste_bank',
+                422 => 'token_expired',
+                409 => 'draft_already_processed',
+                default => 'token_invalid',
+            };
+
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code' => $code,
+                'errors' => [],
+            ], $httpStatus);
+        }
+    }
+
+    /**
+     * POST /api/waste-bank/deposits/approve
+     *
+     * Petugas approve draft setoran (bisa edit weight/kategori).
+     *
+     * Body:
+     *  - draft_id: int (required)
+     *  - items: array (required, min 1)
+     *    - waste_category_id: int
+     *    - weight_kg: float (min 0.01)
+     *  - notes: string|null
+     */
+    public function approveDraft(Request $request): JsonResponse
+    {
+        $request->validate([
+            'draft_id' => 'required|integer|exists:draft_deposits,id',
+            'items' => 'required|array|min:1',
+            'items.*.waste_category_id' => 'required|integer|exists:waste_categories,id',
+            'items.*.weight_kg' => 'required|numeric|min:0.01',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $wasteBank = $request->user()->wasteBank()->firstOrFail();
+
+        $deposit = $this->depositService->approveDraft(
+            $wasteBank,
+            $request->user(),
+            $request->all(),
+        );
+
+        $newBalance = $deposit->depositor->fresh()->points_balance;
+
+        return response()->json([
+            'message' => 'Setoran berhasil disetujui. Poin telah dikreditkan ke member.',
+            'data' => new DepositResource($deposit),
+            'member_balance' => $newBalance,
+        ], 201, [], JSON_PRESERVE_ZERO_FRACTION);
+    }
 
     /**
      * GET /api/waste-bank/members/lookup?token=  ATAU  ?code=

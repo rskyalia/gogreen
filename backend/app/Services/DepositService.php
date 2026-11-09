@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\ApiException;
 use App\Models\Deposit;
+use App\Models\DraftDeposit;
 use App\Models\User;
 use App\Models\WasteBank;
 use App\Notifications\DepositRecorded;
@@ -31,6 +32,172 @@ class DepositService
         private readonly PointService $pointService,
         private readonly QrTokenService $qrTokenService,
     ) {}
+
+    // ── Approve draft setoran ─────────────────────────────────────────────
+
+    /**
+     * Approve draft setoran yang dibuat user.
+     * Petugas bisa edit weight/kategori sebelum approve.
+     *
+     * @param  array{
+     *   draft_id: int,
+     *   notes?: string,
+     *   items: list<array{waste_category_id: int, weight_kg: float|string}>
+     * }  $data
+     *
+     * @throws ApiException
+     */
+    public function approveDraft(WasteBank $wasteBank, User $recorder, array $data): Deposit
+    {
+        $draft = DraftDeposit::with(['user', 'wasteBank', 'items'])
+            ->findOrFail($data['draft_id']);
+
+        // Validasi draft
+        if ($draft->waste_bank_id !== $wasteBank->id) {
+            throw ApiException::make(
+                'wrong_waste_bank',
+                'Draft ini untuk bank sampah lain.',
+                403,
+            );
+        }
+
+        if ($draft->status !== 'pending') {
+            throw ApiException::make(
+                'draft_already_processed',
+                'Draft ini sudah diproses.',
+                409,
+            );
+        }
+
+        if ($draft->isExpired()) {
+            $draft->markExpired();
+            throw ApiException::make(
+                'draft_expired',
+                'Draft ini sudah kedaluwarsa.',
+                422,
+            );
+        }
+
+        $categoryIds = array_map(
+            static fn (array $item): int => (int) $item['waste_category_id'],
+            $data['items'],
+        );
+
+        // Validasi duplikat kategori
+        if (count($categoryIds) !== count(array_unique($categoryIds))) {
+            throw ApiException::make(
+                'validation_error',
+                'Tidak boleh ada kategori yang sama dalam satu setoran.',
+                422,
+                ['items' => ['Gabungkan berat kategori yang sama menjadi satu baris.']],
+            );
+        }
+
+        // Validasi kategori diterima bank & aktif
+        $categories = $wasteBank->acceptedCategories()
+            ->where('waste_categories.is_active', true)
+            ->whereIn('waste_categories.id', $categoryIds)
+            ->get()
+            ->keyBy('id');
+
+        if (array_diff($categoryIds, $categories->keys()->all()) !== []) {
+            throw ApiException::make(
+                'category_not_accepted',
+                'Beberapa kategori tidak diterima oleh bank sampah ini.',
+                422,
+                ['items' => ['Beberapa kategori tidak diterima oleh bank sampah ini.']],
+            );
+        }
+
+        $deposit = DB::transaction(function () use (
+            $wasteBank,
+            $recorder,
+            $data,
+            $categories,
+            $draft,
+        ): Deposit {
+            // Kunci member
+            $member = User::whereKey($draft->user_id)->lockForUpdate()->first();
+
+            if (! $member) {
+                throw ApiException::make(
+                    'user_not_found',
+                    'Akun member tidak ditemukan.',
+                    404,
+                );
+            }
+
+            if (! $member->isActive()) {
+                throw ApiException::make(
+                    'user_banned',
+                    'Akun member ini tidak aktif atau telah diblokir.',
+                    403,
+                );
+            }
+
+            // Hitung poin per item
+            $totalWeight = 0.0;
+            $totalPoints = 0;
+            $itemsData = [];
+
+            foreach ($data['items'] as $item) {
+                $category = $categories[(int) $item['waste_category_id']];
+                $weight = round((float) $item['weight_kg'], 2);
+                $points = (int) round($weight * $category->points_per_kg);
+
+                $totalWeight += $weight;
+                $totalPoints += $points;
+
+                $itemsData[] = [
+                    'waste_category_id' => $category->id,
+                    'weight_kg' => $weight,
+                    'points' => $points,
+                ];
+            }
+
+            // Buat deposit dari draft
+            $deposit = Deposit::create([
+                'waste_bank_id' => $wasteBank->id,
+                'user_id' => $member->id,
+                'recorded_by' => $recorder->id,
+                'notes' => $data['notes'] ?? $draft->notes,
+                'total_weight_kg' => round($totalWeight, 3),
+                'total_points' => $totalPoints,
+            ]);
+
+            $deposit->items()->createMany($itemsData);
+            $deposit->load('wasteBank');
+
+            // Tambah saldo & catat ledger
+            $this->pointService->creditDeposit($member, $deposit, $totalPoints);
+
+            // Mark draft sebagai approved
+            $draft->markApproved();
+
+            $deposit = $deposit->loadMissing([
+                'items.wasteCategory',
+                'depositor',
+                'recorder',
+            ]);
+
+            DB::afterCommit(function () use ($deposit): void {
+                try {
+                    $deposit->depositor->notify(
+                        new DepositRecorded($deposit, $deposit->total_points),
+                    );
+                } catch (Throwable $e) {
+                    Log::error('Notifikasi setelah approve draft gagal', [
+                        'deposit_id' => $deposit->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            });
+
+            return $deposit;
+        });
+
+        return $deposit;
+    }
 
     // ── Cari member ───────────────────────────────────────────────────────
 
