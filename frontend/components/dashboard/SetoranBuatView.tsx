@@ -455,7 +455,7 @@ export default function SetoranBuatView({ onGoHistory }: SetoranBuatViewProps) {
         if (!selectedBank || !itemsValid) return;
         setSubmitting(true);
         try {
-            const res = await api.post<{ data: SubmitResult }>("/user/deposits", {
+            const res = await api.post<{ data: { draft_id: number; qr_token: string; payload: string; expires_at: string } }>("/user/deposits/draft", {
                 waste_bank_id: selectedBank.id,
                 notes: notes.trim() || null,
                 items: items.map((it) => ({
@@ -463,8 +463,8 @@ export default function SetoranBuatView({ onGoHistory }: SetoranBuatViewProps) {
                     weight_kg: parseFloat(it.weight_kg),
                 })),
             });
-            setResult(res.data);
-            setStep(3);
+            // Navigate ke halaman QR code
+            window.location.href = `/setor/qr?token=${res.data.qr_token}`;
         } catch (err) {
             toast(firstError(err), "error");
         } finally {
