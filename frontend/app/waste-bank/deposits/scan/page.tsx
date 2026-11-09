@@ -102,14 +102,16 @@ export default function ScanDraftPage() {
       })));
       
       setNotes(res.data.notes || '');
-    } catch (err: any) {
-      const code = err?.code || 'unknown';
-      const message = {
+    } catch (err: unknown) {
+      const anyErr = err as { code?: string; message?: string; errors?: Record<string, string[]>; status?: number };
+      const code = anyErr?.code ?? 'unknown';
+      const errorMessages: Record<string, string> = {
         'wrong_waste_bank': 'QR code ini untuk bank sampah lain. Setoran harus dilakukan di bank sampah yang dipilih user.',
         'token_expired': 'QR code sudah kedaluwarsa.',
         'draft_already_processed': 'Setoran ini sudah diproses.',
         'token_invalid': 'QR code tidak valid.',
-      }[code] || firstError(err);
+      };
+      const message = errorMessages[code] ?? firstError(err);
       
       setError(message);
     } finally {
@@ -165,25 +167,25 @@ export default function ScanDraftPage() {
     setScanning(false);
   }
 
-  function handleScanError(err: any) {
+  function handleScanError(err: unknown) {
+    const anyErr = err as { name?: string };
     console.error('Scanner error:', err);
     setShowScanner(false);
     setScanning(false);
-    
-    // Jangan toast error permission - user bisa refresh sendiri
-    if (err?.name === 'NotAllowedError') {
+
+    if (anyErr?.name === 'NotAllowedError') {
       setError('Akses kamera ditolak. Mohon izinkan akses kamera di browser Anda.');
-    } else if (err?.name === 'NotFoundError') {
+    } else if (anyErr?.name === 'NotFoundError') {
       setError('Kamera tidak ditemukan. Pastikan device memiliki kamera.');
     }
   }
 
-  const totalPoints = draft && items.reduce((sum, item) => {
+  const totalPoints: number = draft ? items.reduce((sum, item) => {
     const draftItem = draft.items.find(i => i.waste_category_id === item.waste_category_id);
     if (!draftItem) return sum;
     const weight = parseFloat(item.weight_kg) || 0;
     return sum + Math.round(weight * draftItem.points_per_kg);
-  }, 0);
+  }, 0) : 0;
 
   const totalWeight = items.reduce((sum, item) => sum + (parseFloat(item.weight_kg) || 0), 0);
 
@@ -371,7 +373,7 @@ export default function ScanDraftPage() {
       </div>
 
       {/* Summary */}
-      {items.length > 0 && totalPoints !== undefined && (
+      {items.length > 0 && (
         <div className="rounded-2xl bg-mint p-4">
           <div className="flex justify-between text-sm">
             <span className="text-muted">Total berat</span>

@@ -15,9 +15,10 @@ import { X } from 'lucide-react';
 interface QrScannerProps {
   onResult: (text: string) => void;
   onClose:  () => void;
+  onError?: (err: unknown) => void;
 }
 
-export default function QrScanner({ onResult, onClose }: QrScannerProps) {
+export default function QrScanner({ onResult, onClose, onError }: QrScannerProps) {
   const scanRegionId = useId().replace(/:/g, '');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scannerRef  = useRef<any>(null);
@@ -52,9 +53,12 @@ export default function QrScanner({ onResult, onClose }: QrScannerProps) {
           // start() berhasil — aman untuk di-stop nanti
           if (!unmounted) startedRef.current = true;
         })
-        .catch(() => {
+        .catch((err: unknown) => {
           // Kamera tidak bisa diakses — tutup scanner
-          if (!unmounted) onClose();
+          if (!unmounted) {
+            onError?.(err);
+            onClose();
+          }
         });
     });
 
