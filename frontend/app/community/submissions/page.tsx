@@ -39,7 +39,11 @@ interface ApiDiyGuide {
 interface ApiSubmission {
   id: number;
   user: ApiUser;
-  diy_guide: ApiDiyGuide;
+  diy_guide?: ApiDiyGuide | null;
+  diyGuide?: ApiDiyGuide | null;
+  title?: string | null;
+  category?: string | null;
+  notes?: string | null;
   proof_image: string;
   status: 'pending' | 'approved' | 'rejected';
   review_note: string | null;
@@ -47,8 +51,6 @@ interface ApiSubmission {
   created_at: string;
   reviewed_at: string | null;
   reviewer?: ApiUser | null;
-  // relasi snake_case dari Laravel eager load
-  diyGuide?: ApiDiyGuide;
 }
 
 interface ApiPaginatedResponse {
@@ -59,6 +61,16 @@ interface ApiPaginatedResponse {
     total: number;
     per_page: number;
   };
+}
+
+// ── Helper: URL Gambar dari Storage ──────────────────────────────────────────
+
+const STORAGE_ORIGIN = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api').replace(/\/api\/?$/, '');
+
+function imageUrl(path: string | null | undefined): string {
+  if (!path) return '';
+  if (/^https?:\/\//.test(path)) return path;
+  return `${STORAGE_ORIGIN}/storage/${path.replace(/^\/?(storage\/)?/, '')}`;
 }
 
 // ── Helper: format tanggal ISO → "12 Okt 2026, 14:20 WIB" ───────────────────
@@ -89,10 +101,21 @@ function getInitials(name: string): string {
     .join('');
 }
 
-// ── Helper: resolve relasi diy_guide (bisa 'diy_guide' atau 'diyGuide') ──────
+// ── Helper: resolve data karya / tutorial DIY ────────────────────────────────
 
-function getGuide(s: ApiSubmission): ApiDiyGuide | null {
-  return s.diy_guide ?? s.diyGuide ?? null;
+function getSubmissionTitle(s: ApiSubmission): string {
+  const guide = s.diy_guide ?? s.diyGuide;
+  return guide?.title || s.title || 'Karya DIY';
+}
+
+function getSubmissionCategory(s: ApiSubmission): string {
+  const guide = s.diy_guide ?? s.diyGuide;
+  return guide?.waste_category?.name || s.category || 'Umum';
+}
+
+function getSubmissionRewardPoints(s: ApiSubmission): number {
+  const guide = s.diy_guide ?? s.diyGuide;
+  return guide?.reward_points ?? 0;
 }
 
 // ── Main Component ───────────────────────────────────────────────────────────
@@ -121,8 +144,13 @@ export default function SubmissionsValidationPage() {
     setError(null);
 
     try {
-      const res = await api.get<ApiPaginatedResponse>('/admin/diy-submissions?per_page=100');
-      setSubmissions(res.data);
+      let res: ApiPaginatedResponse;
+      try {
+        res = await api.get<ApiPaginatedResponse>('/community/diy-submissions?per_page=100');
+      } catch {
+        res = await api.get<ApiPaginatedResponse>('/admin/diy-submissions?per_page=100');
+      }
+      setSubmissions(res.data || []);
     } catch (err) {
       setError(firstError(err, 'Gagal memuat data pengajuan karya.'));
     } finally {
@@ -149,7 +177,11 @@ export default function SubmissionsValidationPage() {
   const handleApprove = async (id: number) => {
     setIsActionLoading(true);
     try {
-      await api.patch(`/admin/diy-submissions/${id}/review`, { status: 'approved' });
+      try {
+        await api.patch(`/community/diy-submissions/${id}/review`, { status: 'approved' });
+      } catch {
+        await api.patch(`/admin/diy-submissions/${id}/review`, { status: 'approved' });
+      }
       await fetchSubmissions(true);
       setSelectedSubmission(null);
     } catch (err) {
@@ -169,10 +201,15 @@ export default function SubmissionsValidationPage() {
 
     setIsActionLoading(true);
     try {
-      await api.patch(`/admin/diy-submissions/${id}/review`, {
+      const payload = {
         status: 'rejected',
         review_note: rejectReasonInput.trim(),
-      });
+      };
+      try {
+        await api.patch(`/community/diy-submissions/${id}/review`, payload);
+      } catch {
+        await api.patch(`/admin/diy-submissions/${id}/review`, payload);
+      }
       await fetchSubmissions(true);
       setRejectReasonInput('');
       setIsRejecting(false);
@@ -187,11 +224,13 @@ export default function SubmissionsValidationPage() {
   // ── Filter lokal ────────────────────────────────────────────────────────
 
   const filteredSubmissions = submissions.filter(item => {
-    const guide = getGuide(item);
+    const title = getSubmissionTitle(item).toLowerCase();
+    const userName = (item.user?.name || '').toLowerCase();
+    const category = getSubmissionCategory(item).toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
+
     const matchesTab = selectedTab === 'all' || item.status === selectedTab;
-    const matchesQuery =
-      item.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      guide?.title?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesQuery = !query || userName.includes(query) || title.includes(query) || category.includes(query);
     return matchesTab && matchesQuery;
   });
 
@@ -312,7 +351,7 @@ export default function SubmissionsValidationPage() {
             <thead className="bg-[#f5faf7] text-[#6b8279] font-bold uppercase tracking-wider border-b border-[#d7e6dd]">
               <tr>
                 <th className="px-4 sm:px-6 py-3.5">User</th>
-                <th className="px-4 sm:px-6 py-3.5">Tutorial DIY</th>
+                <th className="px-4 sm:px-6 py-3.5">Karya / Tutorial DIY</th>
                 <th className="px-4 sm:px-6 py-3.5">Kategori</th>
                 <th className="px-4 sm:px-6 py-3.5">Potensi Poin</th>
                 <th className="px-4 sm:px-6 py-3.5">Status</th>
@@ -331,9 +370,11 @@ export default function SubmissionsValidationPage() {
                 </tr>
               ) : filteredSubmissions.length > 0 ? (
                 filteredSubmissions.map(item => {
-                  const guide = getGuide(item);
-                  const categoryName = guide?.waste_category?.name ?? '-';
-                  const rewardPoints = guide?.reward_points ?? 0;
+                  const title = getSubmissionTitle(item);
+                  const categoryName = getSubmissionCategory(item);
+                  const rewardPoints = getSubmissionRewardPoints(item);
+                  const isCustom = !item.diy_guide && !item.diyGuide;
+                  const isReviewed = item.status === 'approved' || item.status === 'rejected';
 
                   return (
                     <tr key={item.id} className="hover:bg-[#f5faf7]/60 transition-all">
@@ -349,10 +390,24 @@ export default function SubmissionsValidationPage() {
                         </div>
                       </td>
 
-                      {/* Tutorial Title */}
+                      {/* Tutorial / Karya Title */}
                       <td className="px-4 sm:px-6 py-4 font-medium max-w-xs">
-                        <p className="truncate font-semibold text-[#1d3b2f]">{guide?.title ?? '-'}</p>
-                        <p className="text-[10px] text-[#6b8279] mt-0.5">{formatDate(item.created_at)}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate font-semibold text-[#1d3b2f]">{title}</p>
+                          {isCustom && (
+                            <span className="shrink-0 text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-medium">
+                              Mandiri
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-[#6b8279] mt-0.5">
+                          Diunggah {formatDate(item.created_at)}
+                          {item.reviewed_at && (
+                            <span className="block sm:inline sm:before:content-['•'] sm:before:mx-1 text-[#0b4d36]">
+                              Divalidasi {formatDate(item.reviewed_at)}
+                            </span>
+                          )}
+                        </p>
                       </td>
 
                       {/* Category */}
@@ -366,7 +421,9 @@ export default function SubmissionsValidationPage() {
                       <td className="px-4 sm:px-6 py-4 font-extrabold text-[#1f8a5b]">
                         {item.status === 'approved'
                           ? `+${item.points_awarded} Pts`
-                          : `+${rewardPoints} Pts`}
+                          : rewardPoints > 0
+                          ? `+${rewardPoints} Pts`
+                          : '-'}
                       </td>
 
                       {/* Status Badge */}
@@ -377,31 +434,60 @@ export default function SubmissionsValidationPage() {
                           </span>
                         )}
                         {item.status === 'approved' && (
-                          <span className="bg-[#cfeedd] text-[#0b4d36] font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" /> Accepted
-                          </span>
+                          <div>
+                            <span className="bg-[#cfeedd] text-[#0b4d36] font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" /> Accepted
+                            </span>
+                            {item.reviewer && (
+                              <p className="text-[10px] text-[#6b8279] mt-1 truncate max-w-[130px]">
+                                Oleh: {item.reviewer.name}
+                              </p>
+                            )}
+                          </div>
                         )}
                         {item.status === 'rejected' && (
-                          <span className="bg-red-100 text-red-700 font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
-                            <XCircle className="w-3 h-3" /> Rejected
-                          </span>
+                          <div>
+                            <span className="bg-red-100 text-red-700 font-bold text-[10px] px-2.5 py-1 rounded-full inline-flex items-center gap-1">
+                              <XCircle className="w-3 h-3" /> Rejected
+                            </span>
+                            {item.reviewer && (
+                              <p className="text-[10px] text-[#6b8279] mt-1 truncate max-w-[130px]">
+                                Oleh: {item.reviewer.name}
+                              </p>
+                            )}
+                          </div>
                         )}
                       </td>
 
                       {/* Action */}
                       <td className="px-4 sm:px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedSubmission(item);
-                              setIsRejecting(false);
-                              setRejectReasonInput('');
-                            }}
-                            className="px-3 py-1.5 bg-[#0b4d36] hover:bg-[#0a3f2d] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Tinjau</span>
-                          </button>
+                          {isReviewed ? (
+                            <button
+                              onClick={() => {
+                                setSelectedSubmission(item);
+                                setIsRejecting(false);
+                                setRejectReasonInput('');
+                              }}
+                              className="px-3 py-1.5 bg-[#f5faf7] hover:bg-[#e1f3e9] text-[#0b4d36] border border-[#d7e6dd] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                              title="Lihat detail karya yang sudah divalidasi"
+                            >
+                              <Check className="w-3.5 h-3.5 text-[#1f8a5b]" />
+                              <span>Selesai</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setSelectedSubmission(item);
+                                setIsRejecting(false);
+                                setRejectReasonInput('');
+                              }}
+                              className="px-3 py-1.5 bg-[#0b4d36] hover:bg-[#0a3f2d] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Tinjau</span>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -423,9 +509,10 @@ export default function SubmissionsValidationPage() {
 
       {/* Modal Tinjau Karya */}
       {selectedSubmission && (() => {
-        const guide = getGuide(selectedSubmission);
-        const categoryName = guide?.waste_category?.name ?? '-';
-        const rewardPoints = guide?.reward_points ?? 0;
+        const title = getSubmissionTitle(selectedSubmission);
+        const categoryName = getSubmissionCategory(selectedSubmission);
+        const rewardPoints = getSubmissionRewardPoints(selectedSubmission);
+        const photoUrl = imageUrl(selectedSubmission.proof_image);
 
         return (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
@@ -440,11 +527,13 @@ export default function SubmissionsValidationPage() {
                     <span className="text-xs text-[#1f8a5b] font-bold">
                       {selectedSubmission.status === 'approved'
                         ? `Poin diberikan: +${selectedSubmission.points_awarded} Pts`
-                        : `Est. Reward: +${rewardPoints} Pts`}
+                        : rewardPoints > 0
+                        ? `Est. Reward: +${rewardPoints} Pts`
+                        : 'Karya Mandiri'}
                     </span>
                   </div>
                   <h2 className="text-base sm:text-lg font-serif font-bold text-[#1d3b2f]">
-                    {guide?.title ?? '-'}
+                    {title}
                   </h2>
                   <p className="text-xs text-[#6b8279]">
                     Oleh: <strong className="text-[#1d3b2f]">{selectedSubmission.user?.name ?? '-'}</strong> &middot; Diunggah {formatDate(selectedSubmission.created_at)}
@@ -462,12 +551,15 @@ export default function SubmissionsValidationPage() {
               {/* Foto Bukti Karya */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-[#1d3b2f]">Foto Bukti Karya User:</label>
-                <div className="relative h-48 sm:h-64 w-full rounded-xl sm:rounded-2xl overflow-hidden bg-[#e1f3e9] border border-[#d7e6dd]">
-                  {selectedSubmission.proof_image ? (
+                <div className="relative h-48 sm:h-64 w-full rounded-xl sm:rounded-2xl overflow-hidden bg-[#e1f3e9] border border-[#d7e6dd] flex items-center justify-center">
+                  {photoUrl ? (
                     <img
-                      src={selectedSubmission.proof_image}
+                      src={photoUrl}
                       alt="Foto Bukti Karya"
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-[#6b8279] text-xs">
@@ -476,6 +568,14 @@ export default function SubmissionsValidationPage() {
                   )}
                 </div>
               </div>
+
+              {/* Catatan dari User jika ada */}
+              {selectedSubmission.notes && (
+                <div className="p-3.5 bg-[#f5faf7] border border-[#d7e6dd] rounded-xl text-xs space-y-1">
+                  <span className="font-bold text-[#0b4d36] block">Catatan Pembuat:</span>
+                  <p className="text-[#1d3b2f]">{selectedSubmission.notes}</p>
+                </div>
+              )}
 
               {/* Alasan Penolakan jika sudah rejected */}
               {selectedSubmission.status === 'rejected' && selectedSubmission.review_note && (
@@ -536,7 +636,7 @@ export default function SubmissionsValidationPage() {
                   <strong className="uppercase text-[#0b4d36]">{selectedSubmission.status}</strong>
                 </span>
 
-                {selectedSubmission.status === 'pending' && !isRejecting && (
+                {selectedSubmission.status === 'pending' && !isRejecting ? (
                   <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <button
                       onClick={() => setIsRejecting(true)}
@@ -553,9 +653,16 @@ export default function SubmissionsValidationPage() {
                       {isActionLoading
                         ? <Loader2 className="w-4 h-4 animate-spin" />
                         : <Check className="w-4 h-4" />}
-                      Setujui (+{rewardPoints} Pts)
+                      Setujui {rewardPoints > 0 ? `(+${rewardPoints} Pts)` : ''}
                     </button>
                   </div>
+                ) : !isRejecting && (
+                  <button
+                    onClick={() => setSelectedSubmission(null)}
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#f5faf7] hover:bg-[#e1f3e9] text-[#0b4d36] border border-[#d7e6dd] font-bold text-xs transition-all cursor-pointer"
+                  >
+                    Tutup
+                  </button>
                 )}
               </div>
             </div>

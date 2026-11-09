@@ -18,10 +18,21 @@ class DiySubmissionController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $perPage = max(1, min(100, (int) $request->query('per_page', 15)));
+
         $submissions = DiySubmission::with(['user', 'diyGuide.wasteCategory', 'reviewer'])
-            ->when($request->status, fn ($q, $s) => $q->where('status', $s))
-            ->orderBy('created_at', 'asc')
-            ->paginate(15);
+            ->when($request->filled('status') && $request->status !== 'all', fn ($q) => $q->where('status', $request->status))
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $search = '%'.$request->query('search').'%';
+                $q->where(function ($sub) use ($search) {
+                    $sub->whereHas('user', fn ($u) => $u->where('name', 'like', $search))
+                        ->orWhereHas('diyGuide', fn ($g) => $g->where('title', 'like', $search))
+                        ->orWhere('title', 'like', $search)
+                        ->orWhere('category', 'like', $search);
+                });
+            })
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
 
         return response()->json([
             'data' => $submissions->items(),
