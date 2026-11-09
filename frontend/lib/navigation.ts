@@ -22,6 +22,7 @@ import {
   MapPin,
   ScanLine,
   QrCode,
+  Recycle,
   Upload,
   BarChart3,
   History,
@@ -44,15 +45,16 @@ export interface NavGroup {
 // ── Menu user (warga) ─────────────────────────────────────────────────────
 
 export const USER_NAV: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Scan Sampah', href: '/scan', icon: ScanLine },
-  { label: 'Kartu Member', href: '/member-card', icon: QrCode },
-  { label: 'Bank Sampah', href: '/waste-banks', icon: MapPin },
-  { label: 'Komunitas DIY', href: '/komunitas-diy', icon: BookOpen },
-  { label: 'Upload Karya', href: '/upload-karya', icon: Upload },
-  { label: 'Dampak Saya', href: '/dampak-saya', icon: BarChart3 },
-  { label: 'Riwayat Setor', href: '/deposits', icon: History },
-  { label: 'Riwayat Poin', href: '/points', icon: Coins },
+  { label: 'Dashboard',      href: '/dashboard',    icon: LayoutDashboard },
+  { label: 'Scan Sampah',    href: '/scan',         icon: ScanLine        },
+  { label: 'Kartu Member',   href: '/member-card',  icon: QrCode          },
+  { label: 'Setor Sampah',   href: '/setor',        icon: Recycle         },
+  { label: 'Bank Sampah',    href: '/waste-banks',  icon: MapPin          },
+  { label: 'Komunitas DIY',  href: '/komunitas-diy', icon: BookOpen       },
+  { label: 'Upload Karya',   href: '/upload-karya', icon: Upload          },
+  { label: 'Dampak Saya',    href: '/dampak-saya',  icon: BarChart3       },
+  { label: 'Riwayat Setor',  href: '/deposits',     icon: History         },
+  { label: 'Riwayat Poin',   href: '/points',       icon: Coins           },
 ];
 
 // ── Menu bank sampah ──────────────────────────────────────────────────────

@@ -3,14 +3,27 @@
 /**
  * UserBottomNav — navigasi bawah untuk halaman user (mobile-first).
  * Tampil hanya di sm ke bawah pada layar kecil; tersembunyi di sm ke atas.
+ *
+ * Hanya menampilkan 5 item utama agar tidak penuh di layar sempit.
+ * Item lain tetap tersedia via sidebar desktop.
  */
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { USER_NAV } from '@/lib/navigation';
 
+// 5 item paling sering dipakai di mobile
+const BOTTOM_NAV_HREFS = [
+  '/dashboard',
+  '/scan',
+  '/member-card',
+  '/setor',
+  '/deposits',
+];
+
 export function UserBottomNav() {
   const pathname = usePathname();
+  const bottomItems = USER_NAV.filter((item) => BOTTOM_NAV_HREFS.includes(item.href));
 
   return (
     <nav
@@ -19,7 +32,7 @@ export function UserBottomNav() {
       aria-label="Navigasi utama"
     >
       <ul className="flex items-center justify-around" role="list">
-        {USER_NAV.map((item) => {
+        {bottomItems.map((item) => {
           const Icon = item.icon;
           const exact = item.href === '/dashboard' || item.href === '/member-card';
           const isActive = exact

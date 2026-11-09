@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\AiCraftRecommendationController;
 use App\Http\Controllers\Api\PublicDiyGuideController;
 use App\Http\Controllers\Api\PublicWasteCategoryController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Community\DashboardController;
 use App\Http\Controllers\User\DiySubmissionController;
 use App\Http\Controllers\User\MemberCardController;
 use App\Http\Controllers\User\NotificationController;
@@ -20,7 +21,6 @@ use App\Http\Controllers\User\PointLedgerController;
 use App\Http\Controllers\User\SummaryController;
 use App\Http\Controllers\User\UserDepositController;
 use App\Http\Controllers\User\WasteBankSearchController;
-use App\Http\Controllers\Community\DashboardController;
 use App\Http\Controllers\WasteBank\DepositController;
 use App\Http\Controllers\WasteBank\MaterialRequestController;
 use App\Http\Controllers\WasteBank\ProfileController;
@@ -74,6 +74,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('status', [ProfileController::class, 'toggleStatus']);
             Route::put('categories', [ProfileController::class, 'syncCategories']);
 
+            // Scan QR code dari user untuk draft setoran
+            Route::get('deposits/scan', [DepositController::class, 'scanQr']);
+
+            // Approve draft setoran
+            Route::post('deposits/approve', [DepositController::class, 'approveDraft']);
+
             // Member lookup — ?token= (QR) atau ?code= (manual, cadangan)
             Route::middleware('throttle:member-lookup')->get('members/lookup', [DepositController::class, 'findMember']);
 
@@ -109,7 +115,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('summary', SummaryController::class);
 
         Route::get('deposits', [UserDepositController::class, 'index']);
-        Route::post('deposits', [UserDepositController::class, 'store']);
+        Route::post('deposits/draft', [UserDepositController::class, 'storeDraft']);
+        Route::get('deposits/draft/status', [UserDepositController::class, 'draftStatus']);
         Route::get('deposits/{id}', [UserDepositController::class, 'show']);
 
         Route::get('points', PointLedgerController::class);
