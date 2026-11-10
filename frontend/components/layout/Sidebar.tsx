@@ -3,12 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Leaf, LogOut, Menu, X } from 'lucide-react';
+import { Leaf, LogOut, Menu, X, User } from 'lucide-react';
 import { WASTE_BANK_NAV, DEVELOPER_NAV, USER_NAV } from '@/lib/navigation';
 import { useAuth } from '@/context/AuthContext';
 import type { NavItem } from '@/lib/navigation';
-
-// ── Types ─────────────────────────────────────────────────────────────────
 
 export type SidebarVariant = 'waste_bank' | 'developer' | 'user';
 
@@ -17,21 +15,17 @@ interface SidebarProps {
   section?: string;
 }
 
-// ── Config maps ───────────────────────────────────────────────────────────
-
 const NAV_MAP: Record<SidebarVariant, NavItem[]> = {
   waste_bank: WASTE_BANK_NAV,
-  developer:  DEVELOPER_NAV,
-  user:       USER_NAV,
+  developer: DEVELOPER_NAV,
+  user: USER_NAV,
 };
 
 const SECTION_MAP: Record<SidebarVariant, string> = {
   waste_bank: 'Bank Sampah',
-  developer:  'Developer',
-  user:       'Masyarakat',
+  developer: 'Developer',
+  user: 'Masyarakat',
 };
-
-// ── Logo ──────────────────────────────────────────────────────────────────
 
 function Logo() {
   return (
@@ -45,8 +39,6 @@ function Logo() {
     </Link>
   );
 }
-
-// ── Nav links (shared antara desktop sidebar & mobile drawer) ─────────────
 
 function NavLinks({
   nav,
@@ -63,7 +55,7 @@ function NavLinks({
     <nav className="flex-1 space-y-1 overflow-y-auto" aria-label={`Menu ${label}`}>
       {nav.map((item) => {
         const Icon = item.icon;
-        const exact    = item.href.endsWith('dashboard') || item.href.endsWith('new');
+        const exact = item.href.endsWith('dashboard') || item.href.endsWith('new');
         const isActive = exact
           ? pathname === item.href
           : pathname === item.href || pathname.startsWith(item.href + '/');
@@ -88,14 +80,13 @@ function NavLinks({
   );
 }
 
-// ── Profile card (shared) ─────────────────────────────────────────────────
-
 function ProfileCard({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
   if (!user) return null;
 
   return (
     <div className="mt-4 rounded-2xl bg-mist p-4">
+      {/* Detail User */}
       <div className="flex items-center gap-3">
         <div
           aria-hidden
@@ -110,19 +101,33 @@ function ProfileCard({ onNavigate }: { onNavigate?: () => void }) {
           </p>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={() => { logout(); onNavigate?.(); }}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold text-forest transition-colors hover:bg-white/60"
-      >
-        <LogOut className="size-3.5" aria-hidden />
-        Keluar
-      </button>
+
+      {/* ── Tombol Atas Bawah (Flex Column) ── */}
+      <div className="mt-3 flex flex-col gap-1.5">
+        <Link
+          href="/profile"
+          onClick={onNavigate}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2 text-xs font-semibold text-ink shadow-sm transition-colors hover:bg-mist hover:text-forest"
+        >
+          <User className="size-3.5 text-forest" aria-hidden />
+          Edit Profil
+        </Link>
+
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            onNavigate?.();
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold text-forest transition-colors hover:bg-white/60"
+        >
+          <LogOut className="size-3.5" aria-hidden />
+          Keluar
+        </button>
+      </div>
     </div>
   );
 }
-
-// ── Mobile Drawer ─────────────────────────────────────────────────────────
 
 function MobileDrawer({
   open,
@@ -137,7 +142,6 @@ function MobileDrawer({
   pathname: string;
   label: string;
 }) {
-  // Escape key
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -145,7 +149,6 @@ function MobileDrawer({
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  // Kunci scroll body
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
@@ -153,7 +156,6 @@ function MobileDrawer({
 
   return (
     <>
-      {/* Backdrop */}
       <div
         aria-hidden
         onClick={onClose}
@@ -163,7 +165,6 @@ function MobileDrawer({
         ].join(' ')}
       />
 
-      {/* Panel */}
       <aside
         role="dialog"
         aria-modal="true"
@@ -174,7 +175,6 @@ function MobileDrawer({
           open ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        {/* Drawer header */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-line px-5">
           <Logo />
           <button
@@ -187,12 +187,10 @@ function MobileDrawer({
           </button>
         </div>
 
-        {/* Nav */}
         <div className="flex flex-1 flex-col overflow-y-auto px-4 py-5">
           <NavLinks nav={nav} pathname={pathname} label={label} onNavigate={onClose} />
         </div>
 
-        {/* Profile */}
         <div className="border-t border-line px-4 pb-6 pt-4">
           <ProfileCard onNavigate={onClose} />
         </div>
@@ -201,17 +199,14 @@ function MobileDrawer({
   );
 }
 
-// ── Sidebar (desktop) + Hamburger trigger (mobile) ────────────────────────
-
 export function Sidebar({ variant, section }: SidebarProps) {
-  const pathname         = usePathname();
+  const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const nav              = NAV_MAP[variant];
-  const label            = section ?? SECTION_MAP[variant];
+  const nav = NAV_MAP[variant];
+  const label = section ?? SECTION_MAP[variant];
 
   return (
     <>
-      {/* ── Desktop sidebar ── */}
       <aside
         className="fixed left-0 top-0 z-30 hidden h-screen w-64 flex-col border-r border-line bg-white p-5 lg:flex"
         aria-label="Navigasi utama"
@@ -223,8 +218,6 @@ export function Sidebar({ variant, section }: SidebarProps) {
         <ProfileCard />
       </aside>
 
-      {/* ── Mobile: hamburger button (disisipkan di topbar via portal trick) ── */}
-      {/* Kita render tombol ini sebagai fixed element yang hanya muncul di mobile */}
       <button
         type="button"
         onClick={() => setDrawerOpen(true)}
@@ -235,7 +228,6 @@ export function Sidebar({ variant, section }: SidebarProps) {
         <Menu className="size-5" aria-hidden />
       </button>
 
-      {/* ── Mobile drawer ── */}
       <MobileDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
