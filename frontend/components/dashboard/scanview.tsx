@@ -17,7 +17,7 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { fetchTutorials, type Tutorial } from "@/lib/diy";
-import { fetchWasteCategories, type WasteCategory } from "@/lib/waste-categories";
+import { fetchWasteCategories } from "@/lib/waste-categories";
 import { conditions, mapCategoriesToKinds, type Condition, type Kind } from "@/lib/scan-config";
 import AiRecommendationPanel from "./AiRecommendationPanel";
 
@@ -185,6 +185,7 @@ function CommunityTutorialCard({ tutorial, onOpen }: { tutorial: Tutorial; onOpe
 
 export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: string) => void }) {
     const [preview, setPreview] = useState<string | null>(null);
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const [kind, setKind] = useState<Kind | null>(null);
     const [cond, setCond] = useState<Condition | null>(null);
     const [shown, setShown] = useState(false);
@@ -217,6 +218,7 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
         const file = e.target.files?.[0];
         if (file) {
             setPreview(URL.createObjectURL(file));
+            setImageFile(file);
             setShown(false);
             setAiKey((k) => k + 1);
         }
@@ -225,6 +227,7 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
 
     const reset = () => {
         setPreview(null);
+        setImageFile(null);
         setKind(null);
         setCond(null);
         setShown(false);
@@ -232,6 +235,7 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
     };
 
     const ready = Boolean(preview && kind && cond);
+    const readyImageOnly = Boolean(preview);
     const potential = kind && cond ? getPotential(kind, cond) : null;
 
     const [tutorials, setTutorials] = useState<Tutorial[]>([]);
@@ -241,11 +245,12 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
             .catch(() => setTutorials([]));
     }, []);
 
-    const tutorial = kind ? tutorials.find((t) => t.categorySlug === kind || t.difficulty === kind) ?? tutorials[0] : undefined;
+    const tutorial = kind ? tutorials.find((t) => t.categorySlug === kind || t.difficulty === kind) ?? tutorials[0] : tutorials[0];
 
-    const showAi = kind !== "residu";
+    // showBank: tampilkan tombol cari bank sampah (sembunyikan untuk organik)
     const showBank = kind !== "organik";
 
+    // Props AI fallback jika tidak ada gambar (mode manual)
     const aiWasteType = kind === "organik" ? "organic" : kind === "residu" ? "residue" : "recyclable";
 
     const aiObjectName =
@@ -263,7 +268,7 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
             <header>
                 <h1 className="font-serif text-3xl font-medium text-forest sm:text-4xl">Scan sampah</h1>
                 <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
-                    Foto sampahmu, tentukan jenis dan kondisinya, lalu lihat apa yang bisa dibuat darinya.
+                    Foto sampahmu dan AI akan langsung mengenali jenisnya, lalu berikan ide daur ulang kreatif untukmu.
                 </p>
             </header>
 
@@ -347,23 +352,29 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
                     <div>
                         <button
                             type="button"
-                            disabled={!ready}
+                            disabled={!readyImageOnly}
                             onClick={() => setShown(true)}
                             className="flex items-center gap-2 rounded-xl bg-forest px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             <Lightbulb className="size-4" aria-hidden />
                             Lihat potensi olahan
                         </button>
-                        {!ready && (
-                            <p className="mt-2 text-xs text-muted">Lengkapi foto, jenis sampah, dan kondisinya dulu.</p>
+                        {!readyImageOnly ? (
+                            <p className="mt-2 text-xs text-muted">Upload foto dulu untuk memulai analisis AI.</p>
+                        ) : !ready && (
+                            <p className="mt-2 text-xs text-muted">
+                                AI akan menganalisis gambar secara otomatis. Pilih jenis &amp; kondisi untuk info tambahan.
+                            </p>
                         )}
                     </div>
                 </section>
             </div>
 
             {/* Hasil: ringkasan potensi di atas, lalu tutorial AI + Komunitas DIY berdampingan */}
-            {shown && potential && (
+            {shown && readyImageOnly && (
                 <section ref={resultRef} className="scroll-mt-20 space-y-6">
+                    {/* Potential banner — hanya tampil saat kind & cond sudah dipilih */}
+                    {potential && (
                     <div
                         aria-live="polite"
                         className="flex flex-col gap-5 rounded-[28px] border border-line bg-mint p-6 sm:p-8 md:flex-row md:items-center md:justify-between"
@@ -399,29 +410,42 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
                             </button>
                         </div>
                     </div>
+                    )}
 
-                    {(showAi || tutorial) && (
-                        <div className={`grid items-start gap-6 ${showAi && tutorial ? "lg:grid-cols-2" : ""}`}>
-                            {showAi && (
-                                <div>
-                                    <ColumnHeading icon={Sparkles} title="Ide dari AI" note="Dibuat otomatis oleh Gemini" />
-                                    <AiRecommendationPanel
-                                        key={aiKey}
-                                        objectName={aiObjectName}
-                                        material={aiMaterial}
-                                        wasteType={aiWasteType}
-                                    />
-                                </div>
-                            )}
-
-                            {tutorial && (
-                                <div className="order-first lg:order-none">
-                                    <ColumnHeading icon={Users} title="Dari Komunitas DIY" note="Tutorial dari kreator komunitas" />
-                                    <CommunityTutorialCard tutorial={tutorial} onOpen={() => onOpenTutorial(tutorial.id)} />
-                                </div>
-                            )}
+                    {/* Scan lagi — selalu tampil di mode gambar saja tanpa kind/cond */}
+                    {!potential && (
+                        <div className="flex justify-end">
+                            <button
+                                type="button"
+                                onClick={reset}
+                                className="flex items-center gap-2 rounded-xl border border-forest/30 px-5 py-2.5 text-sm font-semibold text-forest transition-colors hover:bg-mist"
+                            >
+                                <RotateCcw className="size-4" aria-hidden />
+                                Scan lagi
+                            </button>
                         </div>
                     )}
+
+                    {/* AI panel — selalu tampil (tidak disembunyikan untuk residu karena AI mengidentifikasi dari gambar) */}
+                    <div className={`grid items-start gap-6 ${tutorial ? "lg:grid-cols-2" : ""}`}>
+                        <div>
+                            <ColumnHeading icon={Sparkles} title="Ide dari AI" note="AI menganalisis gambar & memberi ide daur ulang" />
+                            <AiRecommendationPanel
+                                key={aiKey}
+                                objectName={aiObjectName}
+                                material={aiMaterial}
+                                wasteType={aiWasteType}
+                                imageFile={imageFile}
+                            />
+                        </div>
+
+                        {tutorial && (
+                            <div className="order-first lg:order-none">
+                                <ColumnHeading icon={Users} title="Dari Komunitas DIY" note="Tutorial dari kreator komunitas" />
+                                <CommunityTutorialCard tutorial={tutorial} onOpen={() => onOpenTutorial(tutorial.id)} />
+                            </div>
+                        )}
+                    </div>
                 </section>
             )}
         </div>

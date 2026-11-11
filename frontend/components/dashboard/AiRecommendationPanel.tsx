@@ -25,6 +25,8 @@ interface CraftRecommendation {
 }
 
 interface AiRecommendationResult {
+    /** Nama objek yang teridentifikasi AI dari gambar (hanya ada saat mode gambar) */
+    identifiedObject?: string;
     summary: string;
     recommendations: CraftRecommendation[];
 }
@@ -37,7 +39,10 @@ const DIFFICULTY_LABEL: Record<string, { label: string; className: string }> = {
     hard:   { label: "Sulit",  className: "bg-mist text-leaf"      },
 };
 
-function buildPrompt(objectName: string, material: string, wasteType: string): string {
+/**
+ * Prompt teks biasa — dipakai saat tidak ada gambar (mode manual dengan kind/material).
+ */
+function buildTextPrompt(objectName: string, material: string, wasteType: string): string {
     const wasteTypeLabel =
         wasteType === "organic"
             ? "organik"
@@ -74,23 +79,95 @@ Catatan:
 - Prioritaskan karya yang paling bermanfaat dan populer di Indonesia`;
 }
 
+/**
+ * Prompt multimodal — dipakai saat ada gambar.
+ * Meminta Gemini untuk PERTAMA mengidentifikasi objek dari gambar,
+ * LALU memberikan rekomendasi daur ulang/kerajinan.
+ */
+function buildImagePrompt(): string {
+    return `Kamu adalah asisten identifikasi sampah dan daur ulang. Lihat gambar yang diberikan dengan teliti.
+
+TUGAS:
+1. Identifikasi objek sampah dalam gambar (nama spesifik, misalnya "botol kaca bekas sirup", "kaleng aluminium minuman", "kardus bekas")
+2. Tentukan material utamanya (kaca, plastik, kertas, logam, organik, dll.)
+3. Berikan 3 rekomendasi karya/kerajinan kreatif yang bisa dibuat dari sampah tersebut
+
+Berikan respons HANYA dalam format JSON berikut (tanpa penjelasan lain di luar JSON):
+{
+  "identified_object": "Nama spesifik objek yang terdeteksi dari gambar",
+  "material": "Material utama (kaca/plastik/kertas/logam/organik/lainnya)",
+  "waste_type": "recyclable|organic|residue",
+  "summary": "Satu kalimat ringkasan potensi olahan dari sampah ini",
+  "recommendations": [
+    {
+      "title": "Nama karya yang menarik",
+      "description": "Penjelasan 1-2 kalimat tentang karya ini dan manfaatnya",
+      "difficulty": "easy|medium|hard",
+      "materials": ["bahan tambahan 1", "bahan tambahan 2"],
+      "steps": ["langkah 1", "langkah 2", "langkah 3"],
+      "tips": "Satu tips agar hasilnya maksimal"
+    }
+  ]
+}
+
+Catatan penting:
+- Gunakan Bahasa Indonesia yang ringan dan mudah dipahami
+- identified_object harus spesifik (bukan hanya "sampah")
+- Karya harus realistis bisa dibuat di rumah tanpa alat khusus
+- Difficulty: easy = mudah (< 30 menit), medium = sedang (1-2 jam), hard = butuh keterampilan lebih
+- steps maksimal 5 langkah singkat per karya
+- Jika gambar tidak memperlihatkan objek sampah dengan jelas, tetap berikan rekomendasi terbaik berdasarkan objek yang paling terlihat`;
+}
+
+/** Konversi File ke base64 string (tanpa prefix data URI). */
+async function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const dataUrl = reader.result as string;
+            // Strip the "data:image/...;base64," prefix
+            resolve(dataUrl.split(",")[1] ?? "");
+        };
+        reader.onerror = () => reject(new Error("Gagal membaca file gambar."));
+        reader.readAsDataURL(file);
+    });
+}
+
+interface GeminiImageInput {
+    imageBase64: string;
+    imageMimeType: string;
+}
+
 async function fetchFromGemini(
     objectName: string,
     material: string,
     wasteType: string,
+    imageInput?: GeminiImageInput,
 ): Promise<AiRecommendationResult> {
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!apiKey) throw new Error("NEXT_PUBLIC_GEMINI_API_KEY belum dikonfigurasi.");
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+
+    // Susun parts request — image dulu (jika ada), lalu teks prompt
+    type GeminiPart =
+        | { text: string }
+        | { inline_data: { mime_type: string; data: string } };
+
+    const parts: GeminiPart[] = imageInput
+        ? [
+              { inline_data: { mime_type: imageInput.imageMimeType, data: imageInput.imageBase64 } },
+              { text: buildImagePrompt() },
+          ]
+        : [{ text: buildTextPrompt(objectName, material, wasteType) }];
 
     const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            contents: [{ parts: [{ text: buildPrompt(objectName, material, wasteType) }] }],
+            contents: [{ parts }],
             generationConfig: {
-                maxOutputTokens: 1500,
+                maxOutputTokens: 2000,
             },
         }),
     });
@@ -107,9 +184,9 @@ async function fetchFromGemini(
         throw new Error(`AI menolak permintaan (${finishReason}). Silakan coba lagi.`);
     }
 
-    // Gemini 3.x punya beberapa parts: thought + text — gabungkan semuanya
-    const parts: Array<{ text?: string }> = body?.candidates?.[0]?.content?.parts ?? [];
-    const rawText: string = parts.map((p) => p.text ?? "").join("").trim();
+    // Gemini kadang punya beberapa parts: thought + text — gabungkan semuanya
+    const responseParts: Array<{ text?: string }> = body?.candidates?.[0]?.content?.parts ?? [];
+    const rawText: string = responseParts.map((p) => p.text ?? "").join("").trim();
     if (!rawText) {
         const blockReason = body?.promptFeedback?.blockReason;
         throw new Error(
@@ -122,7 +199,7 @@ async function fetchFromGemini(
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("Respons AI tidak valid. Silakan coba lagi.");
 
-    let parsed: AiRecommendationResult;
+    let parsed: AiRecommendationResult & { identified_object?: string };
     try {
         parsed = JSON.parse(jsonMatch[0]);
     } catch {
@@ -134,20 +211,26 @@ async function fetchFromGemini(
     }
 
     return {
+        identifiedObject: parsed.identified_object ?? undefined,
         summary: parsed.summary ?? "",
         recommendations: parsed.recommendations.slice(0, 3),
     };
 }
 
-// ── Loading AI ─────────────────────────────────────────────────────────────
+const AI_STEPS_IMAGE = [
+    { icon: Zap,      text: "Memindai gambar sampah…"        },
+    { icon: Wand2,    text: "Mengidentifikasi objek…"         },
+    { icon: Sparkles, text: "Menyusun ide daur ulang…"        },
+];
 
-const AI_STEPS = [
+const AI_STEPS_TEXT = [
     { icon: Zap,      text: "Menganalisis jenis sampah…"     },
     { icon: Wand2,    text: "Merancang ide kreatif…"          },
     { icon: Sparkles, text: "Menyusun langkah pembuatan…"     },
 ];
 
-function AiLoadingState() {
+function AiLoadingState({ hasImage }: { hasImage: boolean }) {
+    const AI_STEPS = hasImage ? AI_STEPS_IMAGE : AI_STEPS_TEXT;
     const [step, setStep] = useState(0);
 
     useEffect(() => {
@@ -340,9 +423,14 @@ function CraftCard({ craft, index }: { craft: CraftRecommendation; index: number
 // ── Main component ────────────────────────────────────────────────────────
 
 interface AiRecommendationPanelProps {
+    /** Nama objek — dipakai saat tidak ada gambar (mode manual) */
     objectName: string;
+    /** Material — dipakai saat tidak ada gambar */
     material:   string;
+    /** Waste type — dipakai saat tidak ada gambar */
     wasteType:  string;
+    /** File gambar asli dari input — jika disediakan, Gemini akan menganalisis gambar secara langsung */
+    imageFile?: File | null;
 }
 
 type Status = "idle" | "loading" | "success" | "error";
@@ -351,16 +439,29 @@ export default function AiRecommendationPanel({
     objectName,
     material,
     wasteType,
+    imageFile,
 }: AiRecommendationPanelProps) {
     const [status,   setStatus]   = useState<Status>("loading");
     const [result,   setResult]   = useState<AiRecommendationResult | null>(null);
     const [errorMsg, setErrorMsg] = useState("");
 
+    const hasImage = Boolean(imageFile);
+
     const handleFetch = async () => {
         setStatus("loading");
         setErrorMsg("");
         try {
-            const data = await fetchFromGemini(objectName, material, wasteType);
+            let imageInput: GeminiImageInput | undefined;
+
+            if (imageFile) {
+                const imageBase64 = await fileToBase64(imageFile);
+                imageInput = {
+                    imageBase64,
+                    imageMimeType: imageFile.type || "image/jpeg",
+                };
+            }
+
+            const data = await fetchFromGemini(objectName, material, wasteType, imageInput);
             setResult(data);
             setStatus("success");
         } catch (err) {
@@ -373,7 +474,7 @@ export default function AiRecommendationPanel({
     useEffect(() => { handleFetch(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* ── Loading ── */
-    if (status === "loading") return <AiLoadingState />;
+    if (status === "loading") return <AiLoadingState hasImage={hasImage} />;
 
     /* ── Error ── */
     if (status === "error") {
@@ -408,15 +509,22 @@ export default function AiRecommendationPanel({
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-forest">
                     <Sparkles className="size-5" aria-hidden />
                 </span>
-                <div>
+                <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-leaf">
                         Rekomendasi AI · Gemini
                     </p>
                     <h3 className="mt-1 font-serif text-lg font-medium leading-snug text-forest">
                         Ide Kreatif dari AI
                     </h3>
+                    {/* Pill nama objek yang teridentifikasi dari gambar */}
+                    {result?.identifiedObject && (
+                        <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-forest/20 bg-white px-3 py-1 text-xs font-semibold text-forest">
+                            <Sparkles className="size-3 text-leaf" aria-hidden />
+                            {result.identifiedObject}
+                        </span>
+                    )}
                     {result?.summary && (
-                        <p className="mt-1 text-sm leading-relaxed text-ink/80">{result.summary}</p>
+                        <p className="mt-2 text-sm leading-relaxed text-ink/80">{result.summary}</p>
                     )}
                 </div>
             </div>
