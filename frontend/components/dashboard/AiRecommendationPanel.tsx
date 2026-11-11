@@ -44,92 +44,56 @@ const DIFFICULTY_LABEL: Record<string, { label: string; className: string }> = {
  */
 function buildTextPrompt(objectName: string, material: string, wasteType: string): string {
     const wasteTypeLabel =
-        wasteType === "organic"
-            ? "organik"
-            : wasteType === "residue"
-              ? "residu"
-              : "daur ulang (recyclable)";
+        wasteType === "organic" ? "organik" : wasteType === "residue" ? "residu" : "recyclable";
 
-    return `Kamu adalah asisten kreatif daur ulang sampah. Berikan 3 rekomendasi karya/kerajinan kreatif yang bisa dibuat dari sampah berikut:
-
-Objek terdeteksi: ${objectName}
-Material: ${material}
-Jenis sampah: ${wasteTypeLabel}
-
-Berikan respons HANYA dalam format JSON berikut (tanpa penjelasan lain):
-{
-  "summary": "Satu kalimat ringkasan potensi olahan dari sampah ini",
-  "recommendations": [
-    {
-      "title": "Nama karya yang menarik",
-      "description": "Penjelasan 1-2 kalimat tentang karya ini dan manfaatnya",
-      "difficulty": "easy|medium|hard",
-      "materials": ["bahan tambahan 1", "bahan tambahan 2"],
-      "steps": ["langkah 1", "langkah 2", "langkah 3"],
-      "tips": "Satu tips agar hasilnya maksimal"
-    }
-  ]
-}
-
-Catatan:
-- Gunakan Bahasa Indonesia yang ringan dan mudah dipahami
-- Karya harus realistis bisa dibuat di rumah tanpa alat khusus
-- Difficulty: easy = mudah (< 30 menit), medium = sedang (1-2 jam), hard = butuh keterampilan lebih
-- steps maksimal 5 langkah singkat per karya
-- Prioritaskan karya yang paling bermanfaat dan populer di Indonesia`;
+    return `Asisten daur ulang. Beri 3 ide kerajinan dari: ${objectName} (${material}, ${wasteTypeLabel}).
+JSON saja, tanpa teks lain:
+{"summary":"...","recommendations":[{"title":"...","description":"...","difficulty":"easy|medium|hard","materials":["..."],"steps":["...","...","..."],"tips":"..."}]}
+- Bahasa Indonesia, ringkas
+- steps: maks 4 langkah
+- materials: maks 3 bahan tambahan`;
 }
 
 /**
  * Prompt multimodal — dipakai saat ada gambar.
- * Meminta Gemini untuk PERTAMA mengidentifikasi objek dari gambar,
- * LALU memberikan rekomendasi daur ulang/kerajinan.
  */
 function buildImagePrompt(): string {
-    return `Kamu adalah asisten identifikasi sampah dan daur ulang. Lihat gambar yang diberikan dengan teliti.
-
-TUGAS:
-1. Identifikasi objek sampah dalam gambar (nama spesifik, misalnya "botol kaca bekas sirup", "kaleng aluminium minuman", "kardus bekas")
-2. Tentukan material utamanya (kaca, plastik, kertas, logam, organik, dll.)
-3. Berikan 3 rekomendasi karya/kerajinan kreatif yang bisa dibuat dari sampah tersebut
-
-Berikan respons HANYA dalam format JSON berikut (tanpa penjelasan lain di luar JSON):
-{
-  "identified_object": "Nama spesifik objek yang terdeteksi dari gambar",
-  "material": "Material utama (kaca/plastik/kertas/logam/organik/lainnya)",
-  "waste_type": "recyclable|organic|residue",
-  "summary": "Satu kalimat ringkasan potensi olahan dari sampah ini",
-  "recommendations": [
-    {
-      "title": "Nama karya yang menarik",
-      "description": "Penjelasan 1-2 kalimat tentang karya ini dan manfaatnya",
-      "difficulty": "easy|medium|hard",
-      "materials": ["bahan tambahan 1", "bahan tambahan 2"],
-      "steps": ["langkah 1", "langkah 2", "langkah 3"],
-      "tips": "Satu tips agar hasilnya maksimal"
-    }
-  ]
+    return `Identifikasi sampah dalam gambar lalu beri 3 ide kerajinan.
+JSON saja, tanpa teks lain:
+{"identified_object":"...","material":"...","waste_type":"recyclable|organic|residue","summary":"...","recommendations":[{"title":"...","description":"...","difficulty":"easy|medium|hard","materials":["..."],"steps":["...","...","..."],"tips":"..."}]}
+- Bahasa Indonesia, ringkas
+- steps: maks 4 langkah
+- materials: maks 3 bahan tambahan`;
 }
 
-Catatan penting:
-- Gunakan Bahasa Indonesia yang ringan dan mudah dipahami
-- identified_object harus spesifik (bukan hanya "sampah")
-- Karya harus realistis bisa dibuat di rumah tanpa alat khusus
-- Difficulty: easy = mudah (< 30 menit), medium = sedang (1-2 jam), hard = butuh keterampilan lebih
-- steps maksimal 5 langkah singkat per karya
-- Jika gambar tidak memperlihatkan objek sampah dengan jelas, tetap berikan rekomendasi terbaik berdasarkan objek yang paling terlihat`;
-}
-
-/** Konversi File ke base64 string (tanpa prefix data URI). */
-async function fileToBase64(file: File): Promise<string> {
+/** Resize + konversi File ke base64 (maks 512px, quality 0.75) untuk memperkecil payload. */
+async function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
     return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const dataUrl = reader.result as string;
-            // Strip the "data:image/...;base64," prefix
-            resolve(dataUrl.split(",")[1] ?? "");
+        const img = new window.Image();
+        const objectUrl = URL.createObjectURL(file);
+
+        img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+
+            const MAX = 512;
+            const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+            const w = Math.round(img.width * scale);
+            const h = Math.round(img.height * scale);
+
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) { reject(new Error("Canvas tidak tersedia.")); return; }
+
+            ctx.drawImage(img, 0, 0, w, h);
+            // Selalu encode ke JPEG untuk ukuran terkecil
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+            resolve({ base64: dataUrl.split(",")[1] ?? "", mimeType: "image/jpeg" });
         };
-        reader.onerror = () => reject(new Error("Gagal membaca file gambar."));
-        reader.readAsDataURL(file);
+
+        img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Gagal membaca gambar.")); };
+        img.src = objectUrl;
     });
 }
 
@@ -147,7 +111,7 @@ async function fetchFromGemini(
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!apiKey) throw new Error("NEXT_PUBLIC_GEMINI_API_KEY belum dikonfigurasi.");
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
 
     // Susun parts request — image dulu (jika ada), lalu teks prompt
     type GeminiPart =
@@ -167,7 +131,8 @@ async function fetchFromGemini(
         body: JSON.stringify({
             contents: [{ parts }],
             generationConfig: {
-                maxOutputTokens: 2000,
+                maxOutputTokens: 900,
+                temperature: 0.5,
             },
         }),
     });
@@ -454,11 +419,8 @@ export default function AiRecommendationPanel({
             let imageInput: GeminiImageInput | undefined;
 
             if (imageFile) {
-                const imageBase64 = await fileToBase64(imageFile);
-                imageInput = {
-                    imageBase64,
-                    imageMimeType: imageFile.type || "image/jpeg",
-                };
+                const { base64, mimeType } = await fileToBase64(imageFile);
+                imageInput = { imageBase64: base64, imageMimeType: mimeType };
             }
 
             const data = await fetchFromGemini(objectName, material, wasteType, imageInput);

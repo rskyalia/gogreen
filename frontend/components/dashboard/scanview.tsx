@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { fetchTutorials, type Tutorial } from "@/lib/diy";
 import { fetchWasteCategories } from "@/lib/waste-categories";
-import { conditions, mapCategoriesToKinds, type Condition, type Kind } from "@/lib/scan-config";
+import { conditions, mapCategoriesToKinds, getAiPropsForKind, type Condition, type Kind } from "@/lib/scan-config";
 import AiRecommendationPanel from "./AiRecommendationPanel";
 
 type Potential = { title: string; text: string; tutorialId?: string };
@@ -37,6 +37,17 @@ function getPotential(kind: Kind, cond: Condition): Potential {
                 cond === "rusak"
                     ? "Sampah organik yang sudah busuk tetap cocok untuk kompos. Campur dengan daun kering atau tanah supaya tidak terlalu basah."
                     : "Sisa organik bisa diolah jadi kompos untuk pupuk tanaman. Potong kecil-kecil dan campur dengan daun kering atau tanah.",
+        };
+    }
+    if (kind === "tekstil") {
+        return {
+            title: cond === "rusak" ? "Bisa jadi kain perca" : "Bisa diupcycle jadi kerajinan",
+            text:
+                cond === "rusak"
+                    ? "Pakaian yang sudah robek bisa dipotong jadi kain perca untuk isian bantal, keset, atau alas meja. Jangan langsung dibuang!"
+                    : cond === "kotor"
+                      ? "Cuci dahulu sebelum diolah. Pakaian bersih bisa dijadikan tas belanja, sarung bantal, atau kerajinan unik lainnya."
+                      : "Pakaian bekas yang masih utuh punya potensi besar — bisa jadi tas, celemek, atau karya upcycle bernilai jual.",
         };
     }
     if (cond === "rusak") {
@@ -250,18 +261,9 @@ export default function ScanView({ onOpenTutorial }: { onOpenTutorial: (id: stri
     // showBank: tampilkan tombol cari bank sampah (sembunyikan untuk organik)
     const showBank = kind !== "organik";
 
-    // Props AI fallback jika tidak ada gambar (mode manual)
-    const aiWasteType = kind === "organik" ? "organic" : kind === "residu" ? "residue" : "recyclable";
-
-    const aiObjectName =
-        kind === "organik"
-            ? "sisa organik (sayur/buah)"
-            : kind === "residu"
-                ? "sampah residu"
-                : "bahan daur ulang";
-
-    const aiMaterial =
-        kind === "organik" ? "organik" : kind === "residu" ? "campuran" : "recyclable";
+    // Props AI — spesifik per kategori, fallback ke generic jika tidak ada kind
+    const { objectName: aiObjectName, material: aiMaterial, wasteType: aiWasteType } =
+        kind ? getAiPropsForKind(kind) : { objectName: "bahan daur ulang", material: "recyclable", wasteType: "recyclable" };
 
     return (
         <div className="space-y-6">

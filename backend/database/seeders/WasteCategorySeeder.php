@@ -64,6 +64,15 @@ class WasteCategorySeeder extends Seeder
                 'points_per_kg' => 10,
                 'icon'          => '📰',
             ],
+            [
+                'name'          => 'Tekstil',
+                'slug'          => 'tekstil',
+                'description'   => 'Pakaian bekas, kain perca, dan tekstil rumah tangga. Dapat diupcycle menjadi kerajinan, keset, atau tas daur ulang.',
+                'is_recyclable' => false,
+                'is_upcyclable' => true,
+                'points_per_kg' => 20,
+                'icon'          => '👕',
+            ],
         ];
 
         foreach ($categories as $data) {

@@ -46,3 +46,40 @@ export function isOrganik(kind: string): boolean {
 export function isResidue(kind: string): boolean {
     return kind === 'residu';
 }
+
+export function isTekstil(kind: string): boolean {
+    return kind === 'tekstil';
+}
+
+/**
+ * Kembalikan props teks fallback untuk AiRecommendationPanel
+ * berdasarkan slug kategori yang dipilih user.
+ * Dipakai saat mode image — AI mengidentifikasi sendiri dari foto,
+ * tapi props ini jadi fallback jika tidak ada foto.
+ */
+export function getAiPropsForKind(kind: string): {
+    objectName: string;
+    material: string;
+    wasteType: string;
+} {
+    switch (kind) {
+        case 'organik':
+            return { objectName: 'sisa organik (sayur/buah/daun)', material: 'organik', wasteType: 'organic' };
+        case 'residu':
+            return { objectName: 'sampah residu', material: 'campuran', wasteType: 'residue' };
+        case 'tekstil':
+            return { objectName: 'pakaian bekas / kain perca', material: 'tekstil (kain)', wasteType: 'recyclable' };
+        case 'plastik-pet':
+            return { objectName: 'botol plastik PET', material: 'plastik PET', wasteType: 'recyclable' };
+        case 'kaca':
+            return { objectName: 'botol kaca / toples', material: 'kaca', wasteType: 'recyclable' };
+        case 'kaleng':
+            return { objectName: 'kaleng aluminium / kaleng baja', material: 'logam', wasteType: 'recyclable' };
+        case 'kardus':
+            return { objectName: 'kardus / kotak bekas', material: 'kertas tebal', wasteType: 'recyclable' };
+        case 'kertas':
+            return { objectName: 'kertas bekas / koran', material: 'kertas', wasteType: 'recyclable' };
+        default:
+            return { objectName: 'bahan daur ulang', material: 'recyclable', wasteType: 'recyclable' };
+    }
+}
