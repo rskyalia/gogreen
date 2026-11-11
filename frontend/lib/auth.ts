@@ -29,8 +29,10 @@ export interface AuthUser {
   name: string;
   email: string;
   role: Role;
-  phone: string | null;
+  phone?: string | null;
+  address?: string;  // ← Tambahkan ini
   avatar: string | null;
+  avatar_url?: string; // ← Tambahkan ini
   member_code: string | null;   // hanya untuk role=user
   points_balance: number;
   status: 'active' | 'banned';
@@ -52,10 +54,10 @@ export interface MeResponse {
 
 export function getDashboardPath(role: Role): string {
   const map: Record<Role, string> = {
-    user:       '/dashboard',
+    user: '/dashboard',
     waste_bank: '/waste-bank/dashboard',
-    developer:  '/admin/dashboard',
-    community:  '/community/dashboard',
+    developer: '/admin/dashboard',
+    community: '/community/dashboard',
   };
   return map[role];
 }

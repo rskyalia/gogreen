@@ -100,6 +100,7 @@ function NavLinks({
 
 function ProfileCard({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth();
+  if (!user) return null;
 
   const handleLogout = async () => {
     try {
@@ -109,19 +110,21 @@ function ProfileCard({ onNavigate }: { onNavigate?: () => void }) {
     }
   };
 
+  const avatarUrl = user.avatar_url || user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=15803d&color=fff&bold=true`;
+
   return (
     <div className="rounded-2xl bg-mist p-4">
       <div className="flex items-center gap-3">
         <div
           aria-hidden
-          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-forest text-sm font-semibold text-white"
+          className="relative flex size-9 shrink-0 overflow-hidden items-center justify-center rounded-full bg-forest text-sm font-semibold text-white"
         >
-          {(user?.name ?? "P").charAt(0).toUpperCase()}
+          <img src={avatarUrl} alt={user.name} className="h-full w-full object-cover" />
         </div>
 
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold leading-tight text-ink">
-            {user?.name ?? "Pengguna"}
+            {user.name}
           </p>
           <p className="text-xs capitalize leading-tight text-muted">
             Komunitas DIY
@@ -129,18 +132,27 @@ function ProfileCard({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold text-forest transition-colors hover:bg-white/60"
-      >
-        <LogOut className="size-3.5" aria-hidden />
-        Keluar
-      </button>
+      {/* ── Tombol Atas Bawah (Edit Profil & Keluar) ── */}
+      <div className="mt-3 flex flex-col gap-1.5">
+        <Link
+          href="/community/profile"
+          onClick={onNavigate}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2 text-xs font-semibold text-ink shadow-sm transition-colors hover:bg-mist hover:text-forest"
+        >
+          Edit Profil
+        </Link>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold text-forest transition-colors hover:bg-white/60"
+        >
+          <LogOut className="size-3.5" aria-hidden />
+          Keluar
+        </button>
+      </div>
     </div>
   );
 }
-
 // ── Mobile drawer ─────────────────────────────────────────
 
 function MobileDrawer({
